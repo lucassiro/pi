@@ -1,0 +1,50 @@
+[project]
+name = "pi"
+version = "0.1.0"
+description = ""
+authors = [{ name = "Lucas Siqueira", email = "siqueiraq@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "streamlit (>=1.45.0,<2.0.0)",
+    "jupyterlab (>=4.4.2,<5.0.0)",
+    "httpx (>=0.28.1,<0.29.0)",
+    "pandas (>=2.2.3,<3.0.0)",
+    "pydantic (>=2.11.4,<3.0.0)",
+    "tqdm (>=4.67.1,<5.0.0)",
+]
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff.lint]
+preview = true
+select = [
+    "I",
+    "F",
+    "E",
+    "W",
+    "N",
+    "PL",
+    "PT",
+    "ANN",
+    "Q",
+    "ARG",
+    "PD",
+    "NPY",
+    "FAST",
+    "RUF",
+    "PERF",
+]
+ignore = ["PLR0913", "PLR0917", "PD901"]
+
+[tool.ruff.format]
+preview = true
+quote-style = "double"
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 120

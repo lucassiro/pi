@@ -1,0 +1,10 @@
+{
+	"recommendations": [
+		"ms-python.mypy-type-checker",
+		"charliermarsh.ruff",
+		"ms-python.python",
+		"ms-toolsai.jupyter",
+		"usernamehw.errorlens",
+	],
+	"unwantedRecommendations": []
+}
