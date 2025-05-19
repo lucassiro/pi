@@ -1,22 +1,18 @@
 [project]
 name = "pi"
 version = "0.1.0"
-description = ""
-authors = [{ name = "Lucas Siqueira", email = "siqueiraq@gmail.com" }]
+description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
-    "streamlit (>=1.45.0,<2.0.0)",
-    "jupyterlab (>=4.4.2,<5.0.0)",
-    "httpx (>=0.28.1,<0.29.0)",
-    "pandas (>=2.2.3,<3.0.0)",
-    "pydantic (>=2.11.4,<3.0.0)",
-    "tqdm (>=4.67.1,<5.0.0)",
+    "httpx>=0.28.1",
+    "jupyterlab>=4.4.2",
+    "pandas>=2.2.3",
+    "pydantic>=2.11.4",
+    "rich>=14.0.0",
+    "streamlit>=1.45.1",
+    "tqdm>=4.67.1",
 ]
-
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
 
 [tool.ruff.lint]
 preview = true
