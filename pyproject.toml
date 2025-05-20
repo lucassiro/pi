@@ -16,24 +16,48 @@ dependencies = [
 ]
 
 [tool.ruff.lint]
-preview = true
 select = [
-    "I",
-    "F",
-    "E",
-    "W",
-    "N",
-    "PL",
-    "PT",
+    "A",
     "ANN",
-    "Q",
     "ARG",
-    "PD",
-    "NPY",
+    "ASYNC",
+    "B",
+    "BLE",
+    "C4",
+    "C90",
+    "COM",
+    "DOC",
+    "DTZ",
+    "E",
+    "EM",
+    "F",
     "FAST",
-    "RUF",
+    "FBT",
+    "FIX",
+    "FURB",  # is unstable, search more later
+    "I",
+    "ISC",
+    "N",
+    "NPY",
+    "PD",
+    "PIE",
     "PERF",
+    "PL",
+    "PLE",
+    "PLR",
+    "PLW",
+    "PT",
+    "PTH",
+    "Q",
+    "RET",
+    "RUF",
+    "SLF",
+    "SIM",
+    "TRY",
+    "UP",
+    "W",
 ]
+preview = true
 ignore = ["PLR0913", "PLR0917", "PD901"]
 
 [tool.ruff.format]
