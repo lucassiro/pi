@@ -5,10 +5,12 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "boto3>=1.38.23",
     "httpx>=0.28.1",
     "jupyterlab>=4.4.2",
     "loguru>=0.7.3",
     "pandas>=2.2.3",
+    "psycopg2-binary>=2.9.10",
     "pydantic>=2.11.4",
     "rich>=14.0.0",
     "streamlit>=1.45.1",
@@ -22,7 +24,7 @@ select = [
     "ARG",
     "ASYNC",
     "B",
-    "BLE",
+    # "BLE", # blind exception
     "C4",
     "C90",
     "COM",
@@ -32,9 +34,9 @@ select = [
     "EM",
     "F",
     "FAST",
-    "FBT",
+    # "FBT",
     "FIX",
-    "FURB",  # is unstable, search more later
+    "FURB", # is unstable, search more later
     "I",
     "ISC",
     "N",
@@ -58,7 +60,7 @@ select = [
     "W",
 ]
 preview = true
-ignore = ["PLR0913", "PLR0917", "PD901"]
+ignore = ["PLR0913", "PLR0917", "PD901", "SIM117", "RET501", "ANN401"]
 
 [tool.ruff.format]
 preview = true
