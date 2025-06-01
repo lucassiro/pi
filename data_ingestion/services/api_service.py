@@ -37,16 +37,14 @@ class CamaraAPI:
         data: dict[str, list] = {"url": [], "api": []}
 
         # data from urls
-        logger.info("Getting data from urls")
         for url in tqdm(urls):
+            logger.info(f"Getting data from url: {url}")
             url_data = self.data_from_url(url=url)
             data["url"].extend(url_data["dados"])
 
         # data from API
-        logger.info("Getting data from API")
         deputados = self.get_deputados()
         deputados_ids = [i["id"] for i in deputados["dados"]]
-        # deputados_ids = deputados_ids[:10]  # limitar se quiser testar
 
         for year in years:
             logger.info(f"Getting data from API for year {year}")

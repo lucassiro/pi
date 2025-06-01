@@ -38,33 +38,27 @@
 # }
 
 import sqlite3
-from sqlite3 import Error
+from sqlite3 import Connection, Error
+from typing import Any
 
 
 class LocalDBService:
-    def __init__(self):
-        self.conn = None
-        self.db_path = None
+    def __init__(self) -> None:
+        self.conn: Connection | None = None
+        self.db_path: str | None = None
 
     def connect(self, db_path: str) -> None:
-        if self.conn:
-            print(f"Já conectado a {self.db_path}. Fechando conexão existente.")
+        if self.conn is not None:
             self.close()
 
         self.db_path = db_path
-        try:
-            self.conn = sqlite3.connect(self.db_path)
-            print(f"Conectado ao banco de dados SQLite: {self.db_path}")
-        except Error as e:
-            print(f"Erro ao conectar ao banco de dados {self.db_path}: {e}")
-            self.conn = None
-            self.db_path = None
+        self.conn = sqlite3.connect(self.db_path)
 
-    def _execute_sql(self, sql_statement: str, params=None, many=False) -> sqlite3.Cursor | None:
-        if not self.conn:
-            print("Erro: Nenhuma conexão com o banco de dados ativa.")
-            return None
+    def _execute_sql(self, sql_statement: str, params: Any | None = None, many: bool = False) -> sqlite3.Cursor | None:
         try:
+            if self.conn is None:
+                print("Erro: Nenhuma conexão com o banco de dados ativa.")
+                return None
             cur = self.conn.cursor()
             if many and params:
                 cur.executemany(sql_statement, params)
@@ -73,28 +67,29 @@ class LocalDBService:
             else:
                 cur.execute(sql_statement)
             self.conn.commit()
-            return cur
         except Error as e:
             print(f"Erro ao executar SQL: {e}")
             return None
+        else:
+            return cur
 
     def create_tables(self) -> None:
         if not self.conn:
             print("Erro: Nenhuma conexão com o banco de dados ativa para criar tabelas.")
-            return
+            return None
 
         sql_create_deputados_table = """
         CREATE TABLE IF NOT EXISTS deputados (
             id INTEGER PRIMARY KEY,
-            uri TEXT,
-            nome TEXT,
-            sigla_partido TEXT,
-            uri_partido TEXT,
-            sigla_uf TEXT,
-            id_legislatura INTEGER,
-            url_foto TEXT,
-            email TEXT,
-            fonte TEXT
+            uri TEXT NULL,
+            nome TEXT NULL,
+            sigla_partido TEXT NULL,
+            uri_partido TEXT NULL,
+            sigla_uf TEXT NULL,
+            id_legislatura INTEGER NULL,
+            url_foto TEXT NULL,
+            email TEXT NULL,
+            fonte TEXT NULL
         );
         """
 
@@ -147,9 +142,8 @@ class LocalDBService:
         sql = """ INSERT OR IGNORE INTO deputados(id, uri, nome, sigla_partido, uri_partido, sigla_uf, id_legislatura, url_foto, email, fonte)
                   VALUES(?,?,?,?,?,?,?,?,?,?) """
 
-        data_to_insert = []
-        for dep in deputados:
-            data_to_insert.append((
+        data_to_insert = [
+            (
                 dep.get("id"),
                 dep.get("uri"),
                 dep.get("nome"),
@@ -160,7 +154,9 @@ class LocalDBService:
                 dep.get("url_foto"),
                 dep.get("email"),
                 dep.get("fonte"),
-            ))
+            )
+            for dep in deputados
+        ]
 
         cursor = self._execute_sql(sql, data_to_insert, many=True)
         if cursor:
@@ -175,11 +171,10 @@ class LocalDBService:
             return
 
         sql = """ INSERT INTO despesas(ano, mes, tipo_despesa, cod_documento, tipo_documento, cod_tipo_documento, data_documento, num_documento, valor_documento, url_documento, nome_fornecedor, cnpj_cpf_fornecedor, valor_liquido, valor_glosa, num_ressarcimento, cod_lote, parcela, fonte)
-                  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) """
+                  VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"""
 
-        data_to_insert = []
-        for item in despesas:
-            data_to_insert.append((
+        data_to_insert = [
+            (
                 item.get("ano"),
                 item.get("mes"),
                 item.get("tipo_despesa"),
@@ -198,7 +193,9 @@ class LocalDBService:
                 item.get("cod_lote"),
                 item.get("parcela"),
                 item.get("fonte"),
-            ))
+            )
+            for item in despesas
+        ]
 
         cursor = self._execute_sql(sql, data_to_insert, many=True)
         if cursor:
@@ -207,7 +204,7 @@ class LocalDBService:
     def insert_fornecedores(self, fornecedores: list[dict]) -> None:
         if not self.conn:
             print("Erro: Nenhuma conexão com o banco de dados ativa para inserir fornecedores.")
-            return
+            return None
         if not fornecedores:
             print("Nenhum dado de fornecedor fornecido para inserção.")
             return
@@ -215,13 +212,15 @@ class LocalDBService:
         sql = """ INSERT OR IGNORE INTO fornecedores(cnpj_cpf_fornecedor, nome_fornecedor, fonte)
                   VALUES(?,?,?) """
 
-        data_to_insert = []
-        for item in fornecedores:
-            cnpj_cpf = item.get("cnpj_cpf_fornecedor")
-            if cnpj_cpf is None:
-                print(f"Fornecedor ignorado por ter CNPJ/CPF nulo: {item.get('nome_fornecedor')}")
-                continue
-            data_to_insert.append((cnpj_cpf, item.get("nome_fornecedor"), item.get("fonte")))
+        data_to_insert = [
+            (item.get("cnpj_cpf_fornecedor"), item.get("nome_fornecedor"), item.get("fonte"))
+            for item in fornecedores
+            if item.get("cnpj_cpf_fornecedor") is not None
+        ]
+
+        ignored = len(fornecedores) - len(data_to_insert)
+        if ignored > 0:
+            print(f"{ignored} fornecedores ignorados por ter CNPJ/CPF nulo.")
 
         if data_to_insert:
             cursor = self._execute_sql(sql, data_to_insert, many=True)
@@ -232,10 +231,6 @@ class LocalDBService:
 
     def close(self) -> None:
         if self.conn:
-            try:
-                self.conn.close()
-                print(f"Conexão com {self.db_path} fechada.")
-                self.conn = None
-                self.db_path = None
-            except Error as e:
-                print(f"Erro ao fechar a conexão com o banco de dados: {e}")
+            self.conn.close()
+            self.conn = None
+            self.db_path = None
