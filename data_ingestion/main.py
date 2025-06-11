@@ -1,23 +1,25 @@
-from data_ingestion.services.api_service import CamaraAPI
-from data_ingestion.services.data_processor_service import DataProcessorService
+from data_ingestion.services.api_service import GetDataService
 from data_ingestion.services.local_db_service import LocalDBService
 
 
 def main() -> None:
-    urls = ["https://www.camara.leg.br/cotas/Ano-2022.json.zip"]
-    years = [2023, 2024]
+    url = "https://www.camara.leg.br/cotas/Ano-2022.json.zip"
+    anos = [2023, 2024]
 
-    api = CamaraAPI()
-    deputados, data = api.get_data(urls=urls, years=years)
+    data_service = GetDataService()
+    deputados = data_service.get_deputados()
 
-    data_processor = DataProcessorService(data=data, deputados=deputados)
-    despesas, fornecedores, deputados_ = data_processor.process_data()
+    api_despesas, api_fornecedores = data_service.get_data_from_api(deputados=deputados, anos=anos)
+    url_despesas, url_fornecedores = data_service.get_data_from_url(url=url)
+
+    despesas = [*api_despesas, *url_despesas]
+    fornecedores = [*api_fornecedores, *url_fornecedores]
 
     db_service = LocalDBService()
-    db_service.connect("database.db")
+    db_service.connect("database2.db")
 
     db_service.create_tables()
-    db_service.insert_deputados(deputados_)
+    db_service.insert_deputados(deputados)
     db_service.insert_despesas(despesas)
     db_service.insert_fornecedores(fornecedores)
     db_service.close()

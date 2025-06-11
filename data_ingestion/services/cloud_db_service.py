@@ -1,20 +1,21 @@
 import os
 from typing import Any
 
-import mariadb
-from mariadb import Connection, Cursor, Error
+import pymysql
+from pymysql.connections import Connection
+from pymysql.cursors import Cursor
+from pymysql.err import Error
 from services.log_service import logger
 
 
-class MariaDBService:  # Renamed class for clarity
+class PyMySQLService:
     def __init__(self) -> None:
         self.conn: Connection | None = None
-        # RDS connection details - ideally from environment variables
         self.db_host: str | None = os.getenv("DB_HOST")
         self.db_user: str | None = os.getenv("DB_USER")
         self.db_password: str | None = os.getenv("DB_PASSWORD")
         self.db_name: str | None = os.getenv("DB_NAME")
-        self.db_port: int = int(os.getenv("DB_PORT", 3306))  # Default MariaDB port
+        self.db_port: int = int(os.getenv("DB_PORT", 3306))
 
     def connect(self) -> bool:
         if self.conn is not None:
@@ -25,18 +26,21 @@ class MariaDBService:  # Renamed class for clarity
             return False
 
         try:
-            logger.info(f"Connecting to MariaDB at {self.db_host}:{self.db_port} database: {self.db_name}")
-            self.conn = mariadb.connect(
+            logger.info(
+                f"Connecting to MySQL/MariaDB at {self.db_host}:{self.db_port} database: {self.db_name} using PyMySQL"
+            )
+            self.conn = pymysql.connect(
                 host=self.db_host,
                 user=self.db_user,
                 password=self.db_password,
                 database=self.db_name,
                 port=self.db_port,
+                cursorclass=pymysql.cursors.Cursor,
             )
-            logger.info("Successfully connected to MariaDB.")
+            logger.info("Successfully connected via PyMySQL.")
             return True
         except Error as e:
-            logger.error(f"Error connecting to MariaDB: {e}")
+            logger.error(f"Error connecting via PyMySQL: {e}")
             self.conn = None
             return False
 
@@ -45,19 +49,24 @@ class MariaDBService:  # Renamed class for clarity
             if self.conn is None:
                 logger.error("There is no active database connection.")
                 return None
-            cur = self.conn.cursor()
-            if many and params:
-                cur.executemany(sql_statement, params)
-            elif params:
-                cur.execute(sql_statement, params)
-            else:
-                cur.execute(sql_statement)
-            self.conn.commit()
+
+            with self.conn.cursor() as cur:
+                if many and params:
+                    cur.executemany(sql_statement, params)
+                elif params:
+                    cur.execute(sql_statement, params)
+                else:
+                    cur.execute(sql_statement)
+                self.conn.commit()
+                return cur
         except Error as e:
-            logger.error(f"Error executing SQL: {e}")
+            logger.error(f"Error executing SQL with PyMySQL: {e}")
+            if self.conn:
+                try:
+                    self.conn.rollback()
+                except Error as rb_err:
+                    logger.error(f"Error during rollback: {rb_err}")
             return None
-        else:
-            return cur
 
     def create_tables(self) -> None:
         if not self.conn:
@@ -224,4 +233,4 @@ class MariaDBService:  # Renamed class for clarity
         if self.conn:
             self.conn.close()
             self.conn = None
-            logger.info("MariaDB connection closed.")
+            logger.info("PyMySQL connection closed.")
