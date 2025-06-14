@@ -6,3 +6,5 @@ __pycache__/
 *.db
 *.log
 *.pem
+*.ipynb
+!notebooks/get_data.ipynb
