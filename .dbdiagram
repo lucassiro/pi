@@ -1,38 +1,26 @@
 // Use DBML to define your database structure
 // Docs: https://dbml.dbdiagram.io/docs
 
+
 Table deputados {
   id integer [pk]
-  uri text
-  nome text
+  nome_deputado text
   sigla_partido text
-  uri_partido text
   sigla_uf text
   id_legislatura integer
-  url_foto text
-  email text
-  fonte text
 }
 
 Table despesas {
   id_despesa integer [pk, increment]
+  nome_deputado TEXT
   ano integer
   mes integer
   tipo_despesa text
-  cod_documento text
-  tipo_documento text
-  cod_tipo_documento text
   data_documento text
-  num_documento text
   valor_documento float
-  url_documento text
-  nome_fornecedor text [note: 'Nome do fornecedor na despesa. Pode ser redundante se a tabela "fornecedores" for a fonte canônica através do cnpj_cpf_fornecedor.']
-  cnpj_cpf_fornecedor text // Este campo será usado como chave estrangeira para a tabela fornecedores
+  cnpj_cpf_fornecedor text
   valor_liquido float
   valor_glosa float
-  num_ressarcimento text
-  cod_lote text
-  parcela text
   fonte text
 }
 
@@ -42,9 +30,5 @@ Table fornecedores {
   fonte text
 }
 
-// Relacionamentos
-// Muitas despesas podem pertencer a um fornecedor
 Ref: despesas.cnpj_cpf_fornecedor > fornecedores.cnpj_cpf_fornecedor
-
-// Nota: Não há uma chave estrangeira explícita na tabela 'despesas' para relacioná-la diretamente com a tabela 'deputados'
-// com base nas defini
+Ref: despesas.nome_deputado > deputados.nome_deputado
