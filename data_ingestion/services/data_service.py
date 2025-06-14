@@ -9,7 +9,7 @@ from tqdm import tqdm
 from data_ingestion.services.log_service import logger
 
 
-class GetDataService:
+class DataService:
     def __init__(self) -> None:
         self.api_base_url = "https://dadosabertos.camara.leg.br/api/v2"
 
@@ -26,6 +26,7 @@ class GetDataService:
             }
             for i in data
         ]
+
         return selected_data
 
     def get_data_from_api(self, deputados: list[dict], anos: list[int]) -> tuple[list[dict], list[dict]]:

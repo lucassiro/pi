@@ -1,4 +1,4 @@
-from data_ingestion.services.api_service import GetDataService
+from data_ingestion.services.data_service import DataService
 from data_ingestion.services.local_db_service import LocalDBService
 
 
@@ -6,7 +6,7 @@ def main() -> None:
     url = "https://www.camara.leg.br/cotas/Ano-2022.json.zip"
     anos = [2023, 2024]
 
-    data_service = GetDataService()
+    data_service = DataService()
     deputados = data_service.get_deputados()
 
     api_despesas, api_fornecedores = data_service.get_data_from_api(deputados=deputados, anos=anos)
@@ -16,7 +16,7 @@ def main() -> None:
     fornecedores = [*api_fornecedores, *url_fornecedores]
 
     db_service = LocalDBService()
-    db_service.connect("database2.db")
+    db_service.connect("database.db")
 
     db_service.create_tables()
     db_service.insert_deputados(deputados)
