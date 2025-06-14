@@ -9,6 +9,8 @@
 \usepackage{pythonhighlight}
 \usepackage[utf8]{inputenc}
 \usepackage{indentfirst}
+\usepackage{verbatim}
+
 \lstset{
 	numbers=left,
 }
@@ -27,12 +29,12 @@
     \vspace{10cm}
     \textbf{Projeto Integrador em Big Data e Inteligência Analítica}
     \author{Lucas Siqueira Rodrigues}
+    \date{}
 }
-
 
 \begin{document}
 
-\begin{titlepage}
+\begin{titlepage} 
     \maketitle
     \begin{center}
         \vspace{\fill}
@@ -40,7 +42,6 @@
         Junho de 2025
     \end{center}
 \end{titlepage}
-
 
 \section{Obtenção da base de dados}
 \subsection{Introdução}
@@ -84,24 +85,16 @@ for deputado in tqdm(deputados):
 	id_ = deputado["id"]
 	despesas_deputado = api.get_despesas(id_=id_, year=2022)
 	despesas.extend(despesas_deputado["dados"])
-print(len(despesas))
+
+print(len(despesas))  # output: 32
 \end{python}
-
-
-\begin{figure}[h]
-    \centering
-    % Substitua 'imagem1.png' pelo nome do seu arquivo de imagem
-    \includegraphics[width=0.8\textwidth]{assets/1.png} 
-    \caption{Coleta de dados por meio da API para o ano de 2022.}
-    \label{fig:api_2022}
-\end{figure}
 
 Por isso, apenas para esse ano a coleta de dados foi por meio de um arquivo no formato JSON, que também é fornecido no portal de dados abertos da câmara por meio da aba “Arquivos”.
 
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.8\textwidth]{assets/1.png}
-    \caption{Coleta de dados por meio do arquivo.}
+    \includegraphics[width=0.8\textwidth]{assets/1_arquivos.png}
+    \caption{Coleta de dados por meio da aba de arquivos.}
     \label{fig:arquivo_json}
 \end{figure}
 
@@ -111,17 +104,175 @@ Para os anos de 2023 e 2024 a obtenção dos dados foi realizada por meio da API
     \item \texttt{/deputados/\{id\}/despesas}: Fornece detalhes sobre as despesas realizadas pelos parlamentares, incluindo valores, fornecedores, tipos de despesa e datas.
 \end{itemize}
 
-Para organizar os dados de forma eficiente e integrar os dados obtidos por meio da API e por meio do JSON, foi criado um modelo de banco de dados relacional com tabelas normalizadas para representar as informações de deputados, despesas e fornecedores.
+Para organizar os dados de forma eficiente e integrar os dados obtidos por meio da API e por meio do JSON, foi criado um modelo de banco de dados relacional com tabelas normalizadas para representar as informações de deputados, despesas e fornecedores\cite{dbdiagram}.
 
-Logo após serem obtidos, os dados foram inseridos em um banco de dados MariaDB, que foi criado usando o serviço RDS da AWS.
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/1_dbdiagram.png}
+	\caption{Diagrama relacional.}
+	\label{fig:arquivo_json}
+\end{figure}
+
+\newpage
+
+Os dados são obtidos e unificados por meio da classe DataService.
+
+\begin{python}
+import io
+import json
+import re
+import zipfile
+
+import httpx
+from tqdm import tqdm
+
+from data_ingestion.services.log_service import logger
+
+
+class DataService:
+	def __init__(self) -> None:
+		self.api_base_url = "https://dadosabertos.camara.leg.br/api/v2"
+	
+	def get_deputados(self) -> list:
+		response = httpx.get(f"{self.api_base_url}/deputados")
+		data = response.json().get("dados")
+		selected_data = [
+			{
+				"id": i["id"],
+				"nome": i["nome"],
+				"sigla_partido": i["siglaPartido"],
+				"id_legislatura": i["idLegislatura"],
+				"sigla_uf": i["siglaUf"],
+			}
+			for i in data
+		]
+		
+		return selected_data
+	
+	def get_data_from_api(self, deputados: list[dict], anos: list[int]) -> tuple[list[dict], list[dict]]:
+		despesas = []
+		fornecedores = []
+		for ano in anos:
+		logger.info(f"Getting data from API for year {ano}")
+		for deputado in tqdm(deputados):
+		response = httpx.get(f"{self.api_base_url}/deputados/{deputado['id']}/despesas?ano={ano}")
+		despesas_deputado = response.json().get("dados")
+		
+		for item in despesas_deputado:
+		despesas.append(
+		{
+			"nome_deputado": item.get("nome"),
+			"ano": item.get("ano"),
+			"mes": item.get("mes"),
+			"tipo_despesa": item.get("tipoDespesa"),
+			"data_documento": item.get("dataDocumento"),
+			"valor_documento": item.get("valorDocumento"),
+			"cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCpfFornecedor")),
+			"valor_liquido": item.get("valorLiquido"),
+			"valor_glosa": item.get("valorGlosa"),
+			"fonte": "api",
+		},
+		)
+		
+		fornecedores.append({
+			"nome_fornecedor": item.get("nomeFornecedor"),
+			"cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCpfFornecedor")),
+			"fonte": "api",
+		})
+		
+		logger.info(f"Total number of despesas: {len(despesas)}")
+		
+		return despesas, fornecedores
+	
+	@staticmethod
+	def get_data_from_url(url: str) -> tuple[list[dict], list[dict]]:
+		logger.info(f"Getting data from url: {url}")
+		response = httpx.get(url=url)
+		zip_content = response.content
+		
+		with zipfile.ZipFile(io.BytesIO(zip_content)) as zip_file:
+		with zip_file.open(zip_file.namelist()[0]) as json_file:
+		json_content = json_file.read().decode("utf-8")
+		json_data = json.loads(json_content).get("dados")
+		
+		despesas = []
+		fornecedores = []
+		
+		for item in json_data:
+		despesas.append(
+		{
+			"nome_deputado": item.get("nomeParlamentar"),
+			"ano": item.get("ano"),
+			"mes": item.get("mes"),
+			"tipo_despesa": item.get("descricao"),
+			"data_documento": item.get("dataEmissao"),
+			"valor_documento": item.get("valorDocumento"),
+			"cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCPF")),
+			"valor_liquido": item.get("valorLiquido"),
+			"valor_glosa": item.get("valorGlosa"),
+			"fonte": "url",
+		},
+		)
+		
+		fornecedores.append({
+			"nome_fornecedor": item.get("fornecedor"),
+			"cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCPF")),
+			"fonte": "url",
+		})
+		
+		logger.info(f"Total number of despesas: {len(despesas)}")
+		
+		return despesas, fornecedores
+
+\end{python}
+
+
+Por fim, temos a função main(), que realiza todo o ciclo de extração, transformação e carregamento dos dados.
+
+\begin{python}
+from data_ingestion.services.data_service import DataService
+from data_ingestion.services.db_service import DBService
+
+
+def main() -> None:
+	url = "https://www.camara.leg.br/cotas/Ano-2022.json.zip"
+	anos = [2023, 2024]
+	
+	data_service = DataService()
+	deputados = data_service.get_deputados()
+	
+	api_despesas, api_fornecedores = data_service.get_data_from_api(deputados=deputados, anos=anos)
+	url_despesas, url_fornecedores = data_service.get_data_from_url(url=url)
+	
+	despesas = [*api_despesas, *url_despesas]
+	fornecedores = [*api_fornecedores, *url_fornecedores]
+	
+	db_service = DBService()
+	db_service.connect()
+	
+	db_service.create_tables()
+	db_service.insert_deputados(deputados)
+	db_service.insert_despesas(despesas)
+	db_service.insert_fornecedores(fornecedores)
+	db_service.close()
+
+
+if __name__ == "__main__":
+	main()
+	
+\end{python}
+
+O programa, ao ser executado, faz a extração, transformação e carga de 224.042 registros de despesas dos anos de 2022 a 2024.
+
+Logo após serem obtidos, os dados foram inseridos em um banco de dados PostgreSQL, que foi criado usando o serviço Amazon RDS (Relational Database Service).
 
 \begin{figure}[h]
     \centering
     % Substitua 'imagem5.png' pelo nome do seu arquivo de imagem
     % \includegraphics[width=0.8\textwidth]{imagem5.png}
-    \framebox[0.8\textwidth]{\rule{0pt}{4cm} Imagem Platzhalter}
-    \caption{Criação do MariaDB na AWS.}
-    \label{fig:criacao_mariadb}
+    \framebox[0.8\textwidth]{\rule{0pt}{4cm}}
+    \caption{Criação do PostgreSQL na AWS.}
+    \label{fig:criacao_postgresql}
 \end{figure}
 
 \begin{figure}[h]
@@ -133,26 +284,27 @@ Logo após serem obtidos, os dados foram inseridos em um banco de dados MariaDB,
     \label{fig:bd_criacao}
 \end{figure}
 
-O programa, ao ser executado, faz a coleta e persiste 224042 registros de despesas.
-
 Todo o código relacionado ao projeto está no Github\cite{github_repo}.
 
 \subsection{Considerações finais}
-A combinação de tecnologias como Python, AWS e MariaDB foi fundamental para realizar as etapas de coleta, armazenamento e preparação dos dados. A API da Câmara revelou-se limitada em relação à quantidade de dados retornados para o ano de 2022, mas o uso do JSON permitiu superar essa restrição e criar uma base robusta com uma quantidade considerável de dados.
 
+A combinação de tecnologias como Python, AWS e PostgreSQL foi fundamental para realizar as etapas de extração, transformação e carregamento dos dados. A API da Câmara revelou-se limitada em relação à quantidade de dados retornados para o ano de 2022, mas a extração dos dados do JSON permitiu superar essa restrição e criar uma base robusta com uma quantidade considerável de dados.
 
 \section{Relatório Analítico}
+
 \subsection{Introdução}
 
-A análise de dados públicos desempenha um papel crucial na promoção da transparência governamental e no combate a irregularidades. Utilizando uma plataforma de BI, como o Power BI, é possível transformar grandes volumes de dados em informações compreensíveis e acessíveis para a população e órgãos de fiscalização.
+A análise de dados públicos desempenha um papel crucial na promoção da transparência governamental e no combate a irregularidades. Utilizando o Streamlit para a criação de dashboards, é possível transformar grandes volumes de dados em informações compreensíveis e acessíveis para a população e órgãos de fiscalização.
 
 \subsection{Demonstração}
 
-O Power BI foi integrado ao banco de dados PostgreSQL, permitindo consultas em tempo real e construção de dashboards dinâmicos.
+O Streamlit foi integrado ao banco de dados PostgreSQL, permitindo consultas em tempo real e construção de dashboards dinâmicos.
 
-Aqui fazemos uma conexão direta com o banco, e os dados do dashboard podem ser atualizados em tempo real.
+Na nossa base de dados foram construídas 3 tabelas, e para facilitar o processo de construção de gráficos uma query foi feita realizando o join das tabelas.
 
-Foram construídas 3 tabelas, e para facilitar o processo de construção de gráficos uma query foi feita, realizando o join das tabelas.
+\begin{verbatim}
+SELECT * FROM database;
+\end{verbatim}
 
 E finalmente temos a nossa base de dados conectada com o PowerBI.
 
@@ -191,12 +343,12 @@ Outra grande vantagem é poder criar gráficos que retornam os dados diretamente
 \subsection{Introdução}
 O machine learning pode ser usado para encontrar padrões nos dados. Nessa análise, não vi nenhum tipo de machine learning que poderia nos trazer algum tipo de informação sobre os dados.
 
-\section{Vídeo}
-O vídeo de 10 minutos mostrando todo o projeto foi gravado e disponibilizado por meio do google drive através do link: link.
-
 \subsection{Dicionário de dados}
+
 \subsection{Considerações finais}
 
+\section{Vídeo}
+O vídeo de 10 minutos mostrando todo o projeto foi gravado e disponibilizado por meio do google drive através do link: link.
 
 \begin{thebibliography}{9}
     \bibitem{dados_abertos} Portal de Dados Abertos da Câmara dos Deputados: 
