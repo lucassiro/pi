@@ -7,5 +7,6 @@ uv run -m data_ingestion.main
 
 To execute dashboard
 ```bash
-uv tool streamlit run dashboard/main.py
+uv tool install streamlit
+uvx streamlit run dashboard/Hello.py
 ```
