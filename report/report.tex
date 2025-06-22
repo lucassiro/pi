@@ -131,8 +131,8 @@ from data_ingestion.services.log_service import logger
 
 class DataService:
 	def __init__(self) -> None:
-		self.api_base_url = "https://dadosabertos.camara.leg.br/api/v2"
-
+	self.api_base_url = "https://dadosabertos.camara.leg.br/api/v2"
+	
 	def get_deputados(self) -> list:
 		response = httpx.get(f"{self.api_base_url}/deputados")
 		data = response.json().get("dados")
@@ -145,11 +145,12 @@ class DataService:
 				"sigla_uf": i["siglaUf"],
 			}
 			for i in data
-		]
-		
+			]
+	
 		return selected_data
-
-	def get_data_from_api(self, deputados: list[dict], anos: list[int]) -> tuple[list[dict], list[dict]]:
+	
+	def get_data_from_api(self, anos: list[int]) -> tuple[list[dict], list[dict], list[dict]]:
+		deputados = self.get_deputados()
 		despesas = []
 		fornecedores = []
 		for ano in anos:
@@ -171,7 +172,7 @@ class DataService:
 						"valor_glosa": item.get("valorGlosa"),
 						"fonte": "api",
 					})
-				
+		
 					fornecedores.append({
 						"nome_fornecedor": item.get("nomeFornecedor"),
 						"cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCpfFornecedor")),
@@ -180,23 +181,32 @@ class DataService:
 		
 		logger.info(f"Total number of despesas: {len(despesas)}")
 		
-		return despesas, fornecedores
-
+		return deputados, despesas, fornecedores
+	
 	@staticmethod
-	def get_data_from_url(url: str) -> tuple[list[dict], list[dict]]:
+	def get_data_from_url(url: str) -> tuple[list[dict], list[dict], list[dict]]:
 		logger.info(f"Getting data from url: {url}")
 		response = httpx.get(url=url)
 		zip_content = response.content
-	
+		
 		with zipfile.ZipFile(io.BytesIO(zip_content)) as zip_file:
 			with zip_file.open(zip_file.namelist()[0]) as json_file:
 				json_content = json_file.read().decode("utf-8")
 				json_data = json.loads(json_content).get("dados")
-	
+		
+		deputados = []
 		despesas = []
 		fornecedores = []
-	
+		
 		for item in json_data:
+			deputados.append({
+				"id": item["numeroDeputadoID"],
+				"nome": item["nomeParlamentar"],
+				"sigla_partido": item["siglaPartido"],
+				"id_legislatura": item["codigoLegislatura"],
+				"sigla_uf": item["siglaUF"],
+			})
+			
 			despesas.append({
 				"nome_deputado": item.get("nomeParlamentar"),
 				"ano": item.get("ano"),
@@ -209,7 +219,7 @@ class DataService:
 				"valor_glosa": item.get("valorGlosa"),
 				"fonte": "url",
 			})
-		
+			
 			fornecedores.append({
 				"nome_fornecedor": item.get("fornecedor"),
 				"cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCPF")),
@@ -218,8 +228,7 @@ class DataService:
 		
 		logger.info(f"Total number of despesas: {len(despesas)}")
 		
-		return despesas, fornecedores
-
+		return deputados, despesas, fornecedores
 \end{python}
 
 
@@ -241,30 +250,28 @@ def main() -> None:
 	anos = [2023, 2024]
 	
 	data_service = DataService()
-	deputados = data_service.get_deputados()
+	api_deputados, api_despesas, api_fornecedores = data_service.get_data_from_api(anos=anos)
+	url_deputados, url_despesas, url_fornecedores = data_service.get_data_from_url(url=url)
 	
-	api_despesas, api_fornecedores = data_service.get_data_from_api(deputados=deputados, anos=anos)
-	url_despesas, url_fornecedores = data_service.get_data_from_url(url=url)
-	
+	deputados = [*api_deputados, *url_deputados]
 	despesas = [*api_despesas, *url_despesas]
 	fornecedores = [*api_fornecedores, *url_fornecedores]
 	
 	db_service = DBService(
-	    user=os.environ["DB_USER"],
-	    password=os.environ["DB_PASSWORD"],
-	    host=os.environ["DB_HOST"],
-	    port=int(os.environ["DB_PORT"]),
-	    dbname=os.environ["DB_NAME"],
+		user=os.environ["DB_USER"],
+		password=os.environ["DB_PASSWORD"],
+		host=os.environ["DB_HOST"],
+		port=int(os.environ["DB_PORT"]),
+		dbname=os.environ["DB_NAME"],
 	)
 	db_service.insert_data(deputados=deputados, despesas=despesas, fornecedores=fornecedores)
 
 
 if __name__ == "__main__":
 	main()
-	
 \end{python}
 
-O programa, ao ser executado, faz a extração, transformação e carga de 223.982 registros de despesas dos anos de 2022 a 2024.
+O programa, ao ser executado, faz a extração, transformação e carga de 223.982 registros de despesas dos anos de 2022, 2023 e 2024.
 
 Logo após serem obtidos, os dados foram inseridos em um banco de dados MySQL, que foi criado usando o serviço Amazon RDS (Relational Database Service).
 
@@ -310,19 +317,19 @@ SELECT
 	despesas.tipo_despesa,
 	despesas.valor_documento,
 	despesas.cnpj_cpf_fornecedor,
-	fornecedores.nome_fornecedor,
 	deputados.sigla_partido,
 	deputados.id_legislatura,
-	deputados.sigla_uf
+	deputados.sigla_uf,
+	fornecedores.nome_fornecedor
 FROM
 	despesas
-JOIN
-	deputados ON despesas.nome_deputado = deputados.nome
-JOIN
+LEFT JOIN
+	deputados on despesas.nome_deputado = deputados.nome
+LEFT JOIN
 	fornecedores ON despesas.cnpj_cpf_fornecedor = fornecedores.cnpj_cpf_fornecedor;
 \end{verbatim}
 
-É criado um dataframe com os dados, a partir desse dataframe podemos fazer agrupamentos de dados para gerar diversos tipos de gráficos.
+A partir dos dados recuperados da base de dados criamos um dataframe do Pandas\cite{Pandas}, onde podemos aplicar filtros e realizar agrupamentos nos dados para extrair informações e criar gráficos.
 
 \begin{python}
 grouped_df = df[["tipo_despesa", "valor_documento"]].groupby("tipo_despesa").sum()
@@ -346,8 +353,8 @@ Aqui podemos analisar o gastos dos anos de 2022, 2023 e 2024 de forma combinada 
 		\toprule
 		Ano & Total de Gastos & Quantidade de Deputados \\
 		\midrule
-		Combinados & R\$ 145 mi & 503 \\
-		2022 & R\$ 117 mi & 280 \\
+		Combinados & R\$ 249 mi & 795 \\
+		2022 & R\$ 221 mi & 572 \\
 		2023 & R\$ 14 mi & 494 \\
 		2024 & R\$ 14 mi & 496 \\
 		\bottomrule
@@ -356,7 +363,7 @@ Aqui podemos analisar o gastos dos anos de 2022, 2023 e 2024 de forma combinada 
 	\label{tab:minhatabela1}
 \end{table}
 
-Para os anos combinados, temos que MANUTENÇÃO DE ESCRITÓRIO DE APOIO À ATIVIDADE PARLAMENTAR foi a categoria de gastos com o maior valor, seguido de DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR e PASSAGEM AÉREA - SIGEPA.
+Para os anos combinados, temos que DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR foi a categoria de gastos com o maior valor, seguido de PASSAGEM AÉREA - SIGEPA e MANUTENÇÃO DE ESCRITÓRIO DE APOIO À ATIVIDADE PARLAMENTAR.
 
 \begin{figure}[!htbp]
 	\centering
@@ -374,7 +381,7 @@ Giacobo foi o parlamentar com a maior quantidade de gastos, totalizando R\$ 1.28
 	\label{fig:criacao_postgresql}
 \end{figure}
 
-Com relação aos fornecedores, as 4 maiores são empresas de companhias aéreas. A TAM foi disparadamente a maior, com gastos totalizando R\$ 26.192.900,91, seguida por Latam Linhas Aéreas com R\$ 2.829.783,31, Gol Linhas Aéreas com R\$ 2.266.108,56 e Azul Linhas Aéreas com R\$ 1.556.265,95.
+Com relação aos fornecedores, as 3 maiores são empresas de companhias aéreas. A TAM foi disparadamente a maior, com gastos totalizando R\$ 48 milhões, seguida por Latam Linhas Aéreas com R\$ 5 milhões e Gol Linhas Aéreas com quase R\$ 4 milhões.
 
 \begin{figure}[!htbp]
 	\centering
@@ -383,12 +390,29 @@ Com relação aos fornecedores, as 4 maiores são empresas de companhias aéreas
 	\label{fig:criacao_postgresql}
 \end{figure}
 
+Usando o streamlit também podemos criar gráficos dinâmicos para analisar os dados separados por categorias, assim podemos selecionar a variável de interesse e a função de agregação, para assim poder analisar o total de gastos, média, valor máximo e muito mais.
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/2_plot5.png}
+	\caption{Gráfico dinâmico.}
+	\label{fig:criacao_postgresql}
+\end{figure}
+
+Ao selecionar a categoria sigla\_partido, podemos ver que os partidos com o maior número de gastos foi o PL com R\$ 34 milhões, seguido pelo PP com R\$ 28 milhões e o PT com R\$ 27 milhões.
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/2_plot6.png}
+	\caption{Valor dos gastos por partido.}
+	\label{fig:criacao_postgresql}
+\end{figure}
 
 \subsection{Considerações finais}
 
-O Streamlit é uma ferramenta poderosa para análise de dados, por meio dela podemos construir gráficos que auxiliam em muito a análise e conseguimos tirar diversos insights.
+O Streamlit é uma ferramenta robusta para análise de dados, permitindo a criação de gráficos interativos que facilitam a compreensão e a extração de insights valiosos. Diferente de plataformas de BI como o Power BI, o Streamlit oferece maior controle e personalização sobre suas visualizações, embora exija conhecimento em programação e um tempo de desenvolvimento inicial maior.
 
-Outra grande vantagem é poder criar gráficos que retornam os dados diretamente do banco de dados, assim podemos ter gráficos atualizados e em tempo real.
+Uma das suas maiores vantagens é a capacidade de construir gráficos que retornam dados diretamente do banco de dados. Isso garante que suas visualizações estejam sempre atualizadas e em tempo real, proporcionando uma visão dinâmica e precisa das informações.
 
 \section{Machine Learning}
 \subsection{Introdução}
@@ -397,11 +421,25 @@ Machine Learning (Aprendizado de Máquina) é um campo da inteligência artifici
 
 \subsection{Dicionário de dados}
 
-No contexto do nosso projeto, foi desenvolvido um modelo de Machine Learning para identificar anomalias nos dados, utilizando o algoritmo Isolation Forest.
+No contexto do nosso projeto, as seguintes variáveis são selecionadas para a construção do modelo de machine learning:
 
-O Isolation Forest é um algoritmo de Machine Learning não supervisionado, amplamente utilizado para detecção de anomalias. Diferente de outros métodos que tentam "encontrar" a normalidade para depois identificar o que é diferente, o Isolation Forest adota uma abordagem mais direta: ele isola as anomalias.
+\begin{itemize}
+	\item \texttt{nome\_deputado}: Retorna o nome completo do deputado.
+	\item \texttt{ano}: Indica o ano em que a despesa foi realizada.
+	\item \texttt{mes}: Indica o mês em que a despesa foi realizada.
+	\item \texttt{tipo\_despesa}: Descreve a categoria da despesa, como "DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR"\ ou  "PASSAGEM AÉREA - SIGEPA".
+	\item \texttt{valor\_documento}: Apresenta o valor da despesa conforme registrado no documento fiscal.
+	\item \texttt{cnpj\_cpf\_fornecedor}: Fornece o CNPJ ou CPF do fornecedor do bem ou serviço.
+	\item \texttt{sigla\_partido}: Retorna a sigla do partido político ao qual o deputado é filiado.
+	\item \texttt{id\_legislatura}: Identificador único da legislatura à qual o deputado pertence.
+	\item \texttt{sigla\_uf}: Retorna a sigla da Unidade Federativa (estado) pela qual o deputado foi eleito.
+	\item \texttt{nome\_fornecedor}: Apresenta o nome completo do fornecedor do bem ou serviço.
+\end{itemize}
 
-Como funciona?
+Com o propósito de criar um modelo de identificação de anomalias nos dados, utilizamos o algoritmo Isolation Forest.
+
+O Isolation Forest é um algoritmo de Machine Learning não supervisionado, amplamente utilizado para detecção de anomalias. Diferente de outros métodos que tentam "encontrar" a normalidade para depois identificar o que é diferente, o Isolation Forest adota uma abordagem mais direta: ele isola as anomalias. Ele funciona da seguinte forma:
+
 \begin{enumerate}
 	\item \texttt{Construção de Árvores Aleatórias}: O algoritmo constrói uma floresta de árvores de decisão. Para cada árvore, ele seleciona aleatoriamente um atributo e, em seguida, seleciona aleatoriamente um ponto de divisão dentro do intervalo de valores desse atributo.
 	\item \texttt{Isolamento de Pontos}: Esse processo de divisão continua até que cada ponto de dado esteja isolado ou um limite de profundidade da árvore seja atingido.
@@ -417,11 +455,39 @@ Vantagens do Isolation Forest:
 	\item Não Supervisionado: Não requer dados previamente rotulados como "normal" ou "anômalo" para treinar o modelo.
 \end{itemize}
 
-Em resumo, o Isolation Forest é uma escolha robusta para identificar comportamentos ou eventos incomuns que se desviam significativamente do padrão esperado nos dados.
+Podemos transformar os dados em um dataframe do Pandas\cite{Pandas}, e usá-lo para criar um modelo usando a classe IsolatioForest presente no Scikit-Learn\cite{Scikit-Learn}.
 
-Para esse modelo temos as seguintes variáveis:
+\begin{python}
+from sklearn.ensemble import IsolationForest	
+
+df_clean = df.dropna(subset=["valor_liquido"])
+
+X = df_clean[["valor_liquido"]]
+
+iso_forest = IsolationForest(contamination=0.01, random_state=42)
+df_clean["anomaly"] = iso_forest.fit_predict(X)
+
+# -1 para anomalias, 1 para dados normais
+anomalies = df_clean[df_clean["anomaly"] == -1]
+print(f"Temos {len(anomalies)} anomalias no dataframe contendo {len(df)} registros")
+print(f"Isso representa {100 * (len(anomalies) / len(df))}% dos registros")
+
+# Temos 2210 anomalias no dataframe contendo 223982 registros
+# Isso representa 0.9866864301595665% dos registros
+\end{python}
+
+Aqui temos alguns exemplos de dados classificados como anomalias.
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/3_plot1.png}
+	\caption{Anomalias nos gastos.}
+	\label{fig:anomalias}
+\end{figure}
 
 \subsection{Considerações finais}
+
+Em resumo, o Isolation Forest é uma escolha robusta para identificar comportamentos ou eventos incomuns que se desviam significativamente do padrão esperado nos dados.
 
 \section{Vídeo}
 O vídeo de 10 minutos mostrando todo o projeto foi gravado e disponibilizado por meio do google drive através do link: link.
@@ -438,9 +504,12 @@ O vídeo de 10 minutos mostrando todo o projeto foi gravado e disponibilizado po
 
     \bibitem{github_repo} Repositório do Projeto no Github: 
     \href{https://github.com/lucassiro/pi}{https://github.com/lucassiro/pi}
+    
+    \bibitem{Pandas} Pandas: 
+    \href{https://pandas.pydata.org/}{https://pandas.pydata.org/}
+    
+    \bibitem{Scikit-Learn} Scikit-Learn: 
+    \href{https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html}{https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html}
 \end{thebibliography}
-
-nos graficos contar uma historia
-fazer mais comparações entre anos
 
 \end{document}
