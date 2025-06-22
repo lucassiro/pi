@@ -39,20 +39,18 @@ class DataService:
                 despesas_deputado = response.json().get("dados")
 
                 for item in despesas_deputado:
-                    despesas.append(
-                        {
-                            "nome_deputado": item.get("nome"),
-                            "ano": item.get("ano"),
-                            "mes": item.get("mes"),
-                            "tipo_despesa": item.get("tipoDespesa"),
-                            "data_documento": item.get("dataDocumento"),
-                            "valor_documento": item.get("valorDocumento"),
-                            "cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCpfFornecedor")),
-                            "valor_liquido": item.get("valorLiquido"),
-                            "valor_glosa": item.get("valorGlosa"),
-                            "fonte": "api",
-                        },
-                    )
+                    despesas.append({
+                        "nome_deputado": deputado.get("nome"),
+                        "ano": item.get("ano"),
+                        "mes": item.get("mes"),
+                        "tipo_despesa": item.get("tipoDespesa"),
+                        "data_documento": item.get("dataDocumento"),
+                        "valor_documento": item.get("valorDocumento"),
+                        "cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCpfFornecedor")),
+                        "valor_liquido": item.get("valorLiquido"),
+                        "valor_glosa": item.get("valorGlosa"),
+                        "fonte": "api",
+                    })
 
                     fornecedores.append({
                         "nome_fornecedor": item.get("nomeFornecedor"),
@@ -79,20 +77,18 @@ class DataService:
         fornecedores = []
 
         for item in json_data:
-            despesas.append(
-                {
-                    "nome_deputado": item.get("nomeParlamentar"),
-                    "ano": item.get("ano"),
-                    "mes": item.get("mes"),
-                    "tipo_despesa": item.get("descricao"),
-                    "data_documento": item.get("dataEmissao"),
-                    "valor_documento": item.get("valorDocumento"),
-                    "cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCPF")),
-                    "valor_liquido": item.get("valorLiquido"),
-                    "valor_glosa": item.get("valorGlosa"),
-                    "fonte": "url",
-                },
-            )
+            despesas.append({
+                "nome_deputado": item.get("nomeParlamentar"),
+                "ano": item.get("ano"),
+                "mes": item.get("mes"),
+                "tipo_despesa": item.get("descricao"),
+                "data_documento": item.get("dataEmissao"),
+                "valor_documento": item.get("valorDocumento"),
+                "cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCPF")),
+                "valor_liquido": item.get("valorLiquido"),
+                "valor_glosa": item.get("valorGlosa"),
+                "fonte": "url",
+            })
 
             fornecedores.append({
                 "nome_fornecedor": item.get("fornecedor"),

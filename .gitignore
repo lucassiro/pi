@@ -8,3 +8,5 @@ __pycache__/
 *.pem
 *.ipynb
 !notebooks/get_data.ipynb
+!machine_learning.ipynb
+!database.ipynb
