@@ -55,6 +55,5 @@ create_bar_plot(
     x_label=x,
     y_label=y,
     title=f"{y} X {x} ({operation})",
-    # limit=10,
     agg_function=agg_function,
 )

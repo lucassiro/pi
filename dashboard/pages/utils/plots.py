@@ -37,8 +37,6 @@ def create_bar_plot(
             grouped_df = df[[y, x]].groupby(y).sum()
 
     grouped_df = grouped_df.reset_index()
-    print(len(grouped_df))
-    print(type(len(grouped_df)))
 
     bar_limit = 100
     if limit is None and len(grouped_df) > bar_limit:
