@@ -13,11 +13,10 @@ def main() -> None:
     anos = [2023, 2024]
 
     data_service = DataService()
-    deputados = data_service.get_deputados()
+    api_deputados, api_despesas, api_fornecedores = data_service.get_data_from_api(anos=anos)
+    url_deputados, url_despesas, url_fornecedores = data_service.get_data_from_url(url=url)
 
-    api_despesas, api_fornecedores = data_service.get_data_from_api(deputados=deputados, anos=anos)
-    url_despesas, url_fornecedores = data_service.get_data_from_url(url=url)
-
+    deputados = [*api_deputados, *url_deputados]
     despesas = [*api_despesas, *url_despesas]
     fornecedores = [*api_fornecedores, *url_fornecedores]
 

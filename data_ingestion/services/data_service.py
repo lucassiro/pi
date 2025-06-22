@@ -29,7 +29,8 @@ class DataService:
 
         return selected_data
 
-    def get_data_from_api(self, deputados: list[dict], anos: list[int]) -> tuple[list[dict], list[dict]]:
+    def get_data_from_api(self, anos: list[int]) -> tuple[list[dict], list[dict], list[dict]]:
+        deputados = self.get_deputados()
         despesas = []
         fornecedores = []
         for ano in anos:
@@ -60,10 +61,10 @@ class DataService:
 
         logger.info(f"Total number of despesas: {len(despesas)}")
 
-        return despesas, fornecedores
+        return deputados, despesas, fornecedores
 
     @staticmethod
-    def get_data_from_url(url: str) -> tuple[list[dict], list[dict]]:
+    def get_data_from_url(url: str) -> tuple[list[dict], list[dict], list[dict]]:
         logger.info(f"Getting data from url: {url}")
         response = httpx.get(url=url)
         zip_content = response.content
@@ -73,10 +74,19 @@ class DataService:
                 json_content = json_file.read().decode("utf-8")
                 json_data = json.loads(json_content).get("dados")
 
+        deputados = []
         despesas = []
         fornecedores = []
 
         for item in json_data:
+            deputados.append({
+                "id": item["numeroDeputadoID"],
+                "nome": item["nomeParlamentar"],
+                "sigla_partido": item["siglaPartido"],
+                "id_legislatura": item["codigoLegislatura"],
+                "sigla_uf": item["siglaUF"],
+            })
+
             despesas.append({
                 "nome_deputado": item.get("nomeParlamentar"),
                 "ano": item.get("ano"),
@@ -98,4 +108,4 @@ class DataService:
 
         logger.info(f"Total number of despesas: {len(despesas)}")
 
-        return despesas, fornecedores
+        return deputados, despesas, fornecedores
