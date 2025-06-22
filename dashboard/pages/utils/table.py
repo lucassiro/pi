@@ -14,15 +14,15 @@ def get_table() -> pd.DataFrame:
             despesas.tipo_despesa,
             despesas.valor_documento,
             despesas.cnpj_cpf_fornecedor,
-            fornecedores.nome_fornecedor,
             deputados.sigla_partido,
             deputados.id_legislatura,
-            deputados.sigla_uf
+            deputados.sigla_uf,
+            fornecedores.nome_fornecedor
         FROM
             despesas
-        JOIN
-            deputados ON despesas.nome_deputado = deputados.nome
-        JOIN
+        LEFT JOIN
+            deputados on despesas.nome_deputado = deputados.nome
+        LEFT JOIN
             fornecedores ON despesas.cnpj_cpf_fornecedor = fornecedores.cnpj_cpf_fornecedor;
     """
     conn = sqlite3.connect(db_path)
@@ -39,10 +39,10 @@ def get_table() -> pd.DataFrame:
             "tipo_despesa": result[3],
             "valor_documento": result[4],
             "cnpj_cpf_fornecedor": result[5],
-            "nome_fornecedor": result[6],
-            "sigla_partido": result[7],
-            "id_legislatura": result[8],
-            "sigla_uf": result[9],
+            "sigla_partido": result[6],
+            "id_legislatura": result[7],
+            "sigla_uf": result[8],
+            "nome_fornecedor": result[9],
         })
 
     df = pd.DataFrame(data)
