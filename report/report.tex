@@ -10,6 +10,8 @@
 \usepackage[utf8]{inputenc}
 \usepackage{indentfirst}
 \usepackage{verbatim}
+\usepackage{multirow}
+\usepackage{booktabs}
 
 \lstset{
 	numbers=left,
@@ -91,7 +93,7 @@ print(len(despesas))  # output: 32
 
 Por isso, apenas para esse ano a coleta de dados foi por meio de um arquivo no formato JSON, que também é fornecido no portal de dados abertos da câmara por meio da aba “Arquivos”.
 
-\begin{figure}[h]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.8\textwidth]{assets/1_arquivos.png}
     \caption{Coleta de dados por meio da aba de arquivos.}
@@ -106,14 +108,12 @@ Para os anos de 2023 e 2024 a obtenção dos dados foi realizada por meio da API
 
 Para organizar os dados de forma eficiente e integrar os dados obtidos por meio da API e por meio do JSON, foi criado um modelo de banco de dados relacional com tabelas normalizadas para representar as informações de deputados, despesas e fornecedores\cite{dbdiagram}.
 
-\begin{figure}[h]
+\begin{figure}[!htbp]
 	\centering
 	\includegraphics[width=0.8\textwidth]{assets/1_dbdiagram.png}
 	\caption{Diagrama relacional.}
 	\label{fig:arquivo_json}
 \end{figure}
-
-\newpage
 
 Os dados são obtidos e unificados por meio da classe DataService.
 
@@ -132,7 +132,7 @@ from data_ingestion.services.log_service import logger
 class DataService:
 	def __init__(self) -> None:
 		self.api_base_url = "https://dadosabertos.camara.leg.br/api/v2"
-	
+
 	def get_deputados(self) -> list:
 		response = httpx.get(f"{self.api_base_url}/deputados")
 		data = response.json().get("dados")
@@ -148,77 +148,73 @@ class DataService:
 		]
 		
 		return selected_data
-	
+
 	def get_data_from_api(self, deputados: list[dict], anos: list[int]) -> tuple[list[dict], list[dict]]:
 		despesas = []
 		fornecedores = []
 		for ano in anos:
-		logger.info(f"Getting data from API for year {ano}")
-		for deputado in tqdm(deputados):
-		response = httpx.get(f"{self.api_base_url}/deputados/{deputado['id']}/despesas?ano={ano}")
-		despesas_deputado = response.json().get("dados")
+			logger.info(f"Getting data from API for year {ano}")
+			for deputado in tqdm(deputados):
+				response = httpx.get(f"{self.api_base_url}/deputados/{deputado['id']}/despesas?ano={ano}")
+				despesas_deputado = response.json().get("dados")
 		
-		for item in despesas_deputado:
-		despesas.append(
-		{
-			"nome_deputado": item.get("nome"),
-			"ano": item.get("ano"),
-			"mes": item.get("mes"),
-			"tipo_despesa": item.get("tipoDespesa"),
-			"data_documento": item.get("dataDocumento"),
-			"valor_documento": item.get("valorDocumento"),
-			"cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCpfFornecedor")),
-			"valor_liquido": item.get("valorLiquido"),
-			"valor_glosa": item.get("valorGlosa"),
-			"fonte": "api",
-		},
-		)
-		
-		fornecedores.append({
-			"nome_fornecedor": item.get("nomeFornecedor"),
-			"cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCpfFornecedor")),
-			"fonte": "api",
-		})
+				for item in despesas_deputado:
+					despesas.append({
+						"nome_deputado": deputado.get("nome"),
+						"ano": item.get("ano"),
+						"mes": item.get("mes"),
+						"tipo_despesa": item.get("tipoDespesa"),
+						"data_documento": item.get("dataDocumento"),
+						"valor_documento": item.get("valorDocumento"),
+						"cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCpfFornecedor")),
+						"valor_liquido": item.get("valorLiquido"),
+						"valor_glosa": item.get("valorGlosa"),
+						"fonte": "api",
+					})
+				
+					fornecedores.append({
+						"nome_fornecedor": item.get("nomeFornecedor"),
+						"cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCpfFornecedor")),
+						"fonte": "api",
+					})
 		
 		logger.info(f"Total number of despesas: {len(despesas)}")
 		
 		return despesas, fornecedores
-	
+
 	@staticmethod
 	def get_data_from_url(url: str) -> tuple[list[dict], list[dict]]:
 		logger.info(f"Getting data from url: {url}")
 		response = httpx.get(url=url)
 		zip_content = response.content
-		
+	
 		with zipfile.ZipFile(io.BytesIO(zip_content)) as zip_file:
-		with zip_file.open(zip_file.namelist()[0]) as json_file:
-		json_content = json_file.read().decode("utf-8")
-		json_data = json.loads(json_content).get("dados")
-		
+			with zip_file.open(zip_file.namelist()[0]) as json_file:
+				json_content = json_file.read().decode("utf-8")
+				json_data = json.loads(json_content).get("dados")
+	
 		despesas = []
 		fornecedores = []
-		
+	
 		for item in json_data:
-		despesas.append(
-		{
-			"nome_deputado": item.get("nomeParlamentar"),
-			"ano": item.get("ano"),
-			"mes": item.get("mes"),
-			"tipo_despesa": item.get("descricao"),
-			"data_documento": item.get("dataEmissao"),
-			"valor_documento": item.get("valorDocumento"),
-			"cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCPF")),
-			"valor_liquido": item.get("valorLiquido"),
-			"valor_glosa": item.get("valorGlosa"),
-			"fonte": "url",
-		},
-		)
+			despesas.append({
+				"nome_deputado": item.get("nomeParlamentar"),
+				"ano": item.get("ano"),
+				"mes": item.get("mes"),
+				"tipo_despesa": item.get("descricao"),
+				"data_documento": item.get("dataEmissao"),
+				"valor_documento": item.get("valorDocumento"),
+				"cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCPF")),
+				"valor_liquido": item.get("valorLiquido"),
+				"valor_glosa": item.get("valorGlosa"),
+				"fonte": "url",
+			})
 		
-		fornecedores.append({
-			"nome_fornecedor": item.get("fornecedor"),
-			"cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCPF")),
-			"fonte": "url",
-		})
+			fornecedores.append({
+				"nome_fornecedor": item.get("fornecedor"),
+				"cnpj_cpf_fornecedor": re.sub(r"[^0-9]", "", item.get("cnpjCPF")),
+				"fonte": "url",
+			})
 		
 		logger.info(f"Total number of despesas: {len(despesas)}")
 		
@@ -230,8 +226,14 @@ class DataService:
 Por fim, temos a função main(), que realiza todo o ciclo de extração, transformação e carregamento dos dados.
 
 \begin{python}
+import os
+
+from dotenv import load_dotenv
+
 from data_ingestion.services.data_service import DataService
 from data_ingestion.services.db_service import DBService
+
+_ = load_dotenv()
 
 
 def main() -> None:
@@ -247,14 +249,14 @@ def main() -> None:
 	despesas = [*api_despesas, *url_despesas]
 	fornecedores = [*api_fornecedores, *url_fornecedores]
 	
-	db_service = DBService()
-	db_service.connect()
-	
-	db_service.create_tables()
-	db_service.insert_deputados(deputados)
-	db_service.insert_despesas(despesas)
-	db_service.insert_fornecedores(fornecedores)
-	db_service.close()
+	db_service = DBService(
+	    user=os.environ["DB_USER"],
+	    password=os.environ["DB_PASSWORD"],
+	    host=os.environ["DB_HOST"],
+	    port=int(os.environ["DB_PORT"]),
+	    dbname=os.environ["DB_NAME"],
+	)
+	db_service.insert_data(deputados=deputados, despesas=despesas, fornecedores=fornecedores)
 
 
 if __name__ == "__main__":
@@ -262,33 +264,31 @@ if __name__ == "__main__":
 	
 \end{python}
 
-O programa, ao ser executado, faz a extração, transformação e carga de 224.042 registros de despesas dos anos de 2022 a 2024.
+O programa, ao ser executado, faz a extração, transformação e carga de 223.982 registros de despesas dos anos de 2022 a 2024.
 
-Logo após serem obtidos, os dados foram inseridos em um banco de dados PostgreSQL, que foi criado usando o serviço Amazon RDS (Relational Database Service).
+Logo após serem obtidos, os dados foram inseridos em um banco de dados MySQL, que foi criado usando o serviço Amazon RDS (Relational Database Service).
 
-\begin{figure}[h]
+\begin{figure}[!htbp]
     \centering
-    % Substitua 'imagem5.png' pelo nome do seu arquivo de imagem
-    % \includegraphics[width=0.8\textwidth]{imagem5.png}
-    \framebox[0.8\textwidth]{\rule{0pt}{4cm}}
-    \caption{Criação do PostgreSQL na AWS.}
-    \label{fig:criacao_postgresql}
+    \includegraphics[width=0.8\textwidth]{assets/1_criacao.png}
+    \caption{Criação do MySQL na AWS.}
+    \label{fig:criacao_mysql}
 \end{figure}
 
-\begin{figure}[h]
+Após a base de dados ser criada, podemos nos conectar a ela usando o DBeaver\cite{dbeaver}.
+
+\begin{figure}[!htbp]
     \centering
-    % Substitua 'imagem6.png' pelo nome do seu arquivo de imagem
-    % \includegraphics[width=0.8\textwidth]{imagem6.png}
-    \framebox[0.8\textwidth]{\rule{0pt}{4cm} Imagem Platzhalter}
-    \caption{Base de dados em processo de criação.}
-    \label{fig:bd_criacao}
+    \includegraphics[width=0.8\textwidth]{assets/1_dbeaver.png}
+    \caption{Base de dados conectada no DBeaver.}
+    \label{fig:db conexão}
 \end{figure}
 
 Todo o código relacionado ao projeto está no Github\cite{github_repo}.
 
 \subsection{Considerações finais}
 
-A combinação de tecnologias como Python, AWS e PostgreSQL foi fundamental para realizar as etapas de extração, transformação e carregamento dos dados. A API da Câmara revelou-se limitada em relação à quantidade de dados retornados para o ano de 2022, mas a extração dos dados do JSON permitiu superar essa restrição e criar uma base robusta com uma quantidade considerável de dados.
+A combinação de tecnologias como Python, AWS e MySQL foi fundamental para realizar as etapas de extração, transformação e carregamento dos dados. A API da Câmara revelou-se limitada em relação à quantidade de dados retornados para o ano de 2022, mas a extração dos dados do JSON da aba Arquivos permitiu superar essa restrição e criar uma base robusta com uma quantidade considerável de dados.
 
 \section{Relatório Analítico}
 
@@ -298,52 +298,128 @@ A análise de dados públicos desempenha um papel crucial na promoção da trans
 
 \subsection{Demonstração}
 
-O Streamlit foi integrado ao banco de dados PostgreSQL, permitindo consultas em tempo real e construção de dashboards dinâmicos.
+O Streamlit foi integrado ao banco de dados MySQL, permitindo consultas em tempo real e construção de dashboards dinâmicos.
 
 Na nossa base de dados foram construídas 3 tabelas, e para facilitar o processo de construção de gráficos uma query foi feita realizando o join das tabelas.
 
 \begin{verbatim}
-SELECT * FROM database;
+SELECT
+	despesas.nome_deputado,
+	despesas.ano,
+	despesas.mes,
+	despesas.tipo_despesa,
+	despesas.valor_documento,
+	despesas.cnpj_cpf_fornecedor,
+	fornecedores.nome_fornecedor,
+	deputados.sigla_partido,
+	deputados.id_legislatura,
+	deputados.sigla_uf
+FROM
+	despesas
+JOIN
+	deputados ON despesas.nome_deputado = deputados.nome
+JOIN
+	fornecedores ON despesas.cnpj_cpf_fornecedor = fornecedores.cnpj_cpf_fornecedor;
 \end{verbatim}
 
-E finalmente temos a nossa base de dados conectada com o PowerBI.
+É criado um dataframe com os dados, a partir desse dataframe podemos fazer agrupamentos de dados para gerar diversos tipos de gráficos.
 
-Temos diversas colunas interessantes que podemos usar na construção dos nossos gráficos:
-\begin{itemize}	
-	\item cnpj\_cpf\_despesa
-	\item mes
-	\item descricao
-	\item descricao\_especificacao
-	\item valor\_documento
-	\item nome\_deputado
-	\item uf
-	\item sigla\_partido
-	\item nome\_fornecedor
-\end{itemize}
+\begin{python}
+grouped_df = df[["tipo_despesa", "valor_documento"]].groupby("tipo_despesa").sum()
+st.bar_chart(grouped_df, horizontal=True, x_label="Valor total em R$")
+\end{python}
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/2_plot1.png}
+	\caption{Gráfico mostrando a quantidade de gastos por tipo de despesa.}
+	\label{fig:criacao_postgresql}
+\end{figure}
 
 \subsection{Relatórios e tabelas}
 
-Foram construídas algumas páginas contendo alguns gráficos.
+Aqui podemos analisar o gastos dos anos de 2022, 2023 e 2024 de forma combinada ou isolada. Temos que o total de gastos são:
 
-Primeiramente, podemos ver que o valor total de despesas no ano de 2022 foi de 221,4 milhões de reais.
-Há vários registros na coluna nome\_deputado com o nome LIDERANÇA DO CIDADANIA, que possui o maior valor de despesas, totalizando R\$ 912.660,00, seguido da Joenia Wapichana com o valor R\$ 565.630,00 e do Jesus Sérgio com o valor R\$ 549.970,00.
-A atividade com o maior gasto foi de Divulgação da Atividade Parlamentar, com R\$ 52 milhões gastos, seguida por Passagem Aérea com R\$ 48 milhões e Locação ou Fretamento do veículos automotores com R\$ 29 milhões.
-Ao separar os gastos pelo fornecedor, temos o seguinte dado:
-Podemos notar que há uma grande discrepância de gastos com o fornecedor GOL quando comparado com outros fornecedores.
-Em outra página do dashboard, temos gráficos de gastos separados por Partido, UF e Mês do Ano.
-O partido que mais gastou foi o PL, totalizando R\$ 32 milhões.
-O estado que mais gastou foi São Paulo, com R\$ 26 milhões.
-E o mês com maior gasto foi o mês de Dezembro, com um gasto total de R\$ 24 milhões.
+\begin{table}[htbp]
+	\centering
+	\begin{tabular}{llll}
+		\toprule
+		Ano & Total de Gastos & Quantidade de Deputados \\
+		\midrule
+		Combinados & R\$ 145 mi & 503 \\
+		2022 & R\$ 117 mi & 280 \\
+		2023 & R\$ 14 mi & 494 \\
+		2024 & R\$ 14 mi & 496 \\
+		\bottomrule
+	\end{tabular}
+	\caption{Resumo de gastos.}
+	\label{tab:minhatabela1}
+\end{table}
+
+Para os anos combinados, temos que MANUTENÇÃO DE ESCRITÓRIO DE APOIO À ATIVIDADE PARLAMENTAR foi a categoria de gastos com o maior valor, seguido de DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR e PASSAGEM AÉREA - SIGEPA.
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/2_plot2.png}
+	\caption{Valor dos gastos por tipo de despesa.}
+	\label{fig:criacao_postgresql}
+\end{figure}
+
+Giacobo foi o parlamentar com a maior quantidade de gastos, totalizando R\$ 1.289.809,76 em gastos, seguido por Silas Câmara com R\$ 1.177.321,09 e Gustinho Ribeiro com R\$ 1.061.509,11.
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/2_plot3.png}
+	\caption{Valor dos gastos por deputado.}
+	\label{fig:criacao_postgresql}
+\end{figure}
+
+Com relação aos fornecedores, as 4 maiores são empresas de companhias aéreas. A TAM foi disparadamente a maior, com gastos totalizando R\$ 26.192.900,91, seguida por Latam Linhas Aéreas com R\$ 2.829.783,31, Gol Linhas Aéreas com R\$ 2.266.108,56 e Azul Linhas Aéreas com R\$ 1.556.265,95.
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/2_plot4.png}
+	\caption{Valor dos gastos por fornecedor.}
+	\label{fig:criacao_postgresql}
+\end{figure}
+
+
 \subsection{Considerações finais}
 
-O PowerBI é uma ferramenta poderosa para análise de dados, por meio dela podemos construir gráficos dinâmicos que auxiliam em muito a análise e conseguimos tirar diversos insights.
+O Streamlit é uma ferramenta poderosa para análise de dados, por meio dela podemos construir gráficos que auxiliam em muito a análise e conseguimos tirar diversos insights.
+
 Outra grande vantagem é poder criar gráficos que retornam os dados diretamente do banco de dados, assim podemos ter gráficos atualizados e em tempo real.
 
 \section{Machine Learning}
 \subsection{Introdução}
-O machine learning pode ser usado para encontrar padrões nos dados. Nessa análise, não vi nenhum tipo de machine learning que poderia nos trazer algum tipo de informação sobre os dados.
+
+Machine Learning (Aprendizado de Máquina) é um campo da inteligência artificial que permite aos sistemas aprender com dados, identificar padrões, tomar decisões e fazer predições futuras com mínima intervenção humana. Sua aplicação vai desde a detecção de anomalias e o reconhecimento de padrões em grandes volumes de dados até a otimização de processos e a personalização de experiências. É uma ferramenta poderosa para transformar dados brutos em insights acionáveis.
 
 \subsection{Dicionário de dados}
+
+No contexto do nosso projeto, foi desenvolvido um modelo de Machine Learning para identificar anomalias nos dados, utilizando o algoritmo Isolation Forest.
+
+O Isolation Forest é um algoritmo de Machine Learning não supervisionado, amplamente utilizado para detecção de anomalias. Diferente de outros métodos que tentam "encontrar" a normalidade para depois identificar o que é diferente, o Isolation Forest adota uma abordagem mais direta: ele isola as anomalias.
+
+Como funciona?
+\begin{enumerate}
+	\item \texttt{Construção de Árvores Aleatórias}: O algoritmo constrói uma floresta de árvores de decisão. Para cada árvore, ele seleciona aleatoriamente um atributo e, em seguida, seleciona aleatoriamente um ponto de divisão dentro do intervalo de valores desse atributo.
+	\item \texttt{Isolamento de Pontos}: Esse processo de divisão continua até que cada ponto de dado esteja isolado ou um limite de profundidade da árvore seja atingido.
+	\item \texttt{Identificação de Anomalias}: O princípio é que as anomalias, por serem pontos mais raros e diferentes, geralmente exigem menos divisões para serem isoladas nas árvores. Pontos normais, por outro lado, são mais densos e requerem mais divisões para serem separados uns dos outros.
+\end{enumerate}
+
+Vantagens do Isolation Forest:
+
+\begin{itemize}
+	\item Eficiência: É computacionalmente mais eficiente do que muitos outros algoritmos de detecção de anomalias, especialmente para grandes conjuntos de dados.
+	\item Escalabilidade: Lida bem com dados de alta dimensão.
+	\item Baixo Consumo de Memória: Não exige o armazenamento de modelos de densidade complexos.
+	\item Não Supervisionado: Não requer dados previamente rotulados como "normal" ou "anômalo" para treinar o modelo.
+\end{itemize}
+
+Em resumo, o Isolation Forest é uma escolha robusta para identificar comportamentos ou eventos incomuns que se desviam significativamente do padrão esperado nos dados.
+
+Para esse modelo temos as seguintes variáveis:
 
 \subsection{Considerações finais}
 
@@ -356,9 +432,15 @@ O vídeo de 10 minutos mostrando todo o projeto foi gravado e disponibilizado po
 
     \bibitem{dbdiagram} dbdiagram: 
     \href{https://dbdiagram.io/}{https://dbdiagram.io/}
+    
+    \bibitem{dbeaver} DBeaver: 
+    \href{https://dbeaver.io/}{https://dbeaver.io/}
 
     \bibitem{github_repo} Repositório do Projeto no Github: 
     \href{https://github.com/lucassiro/pi}{https://github.com/lucassiro/pi}
 \end{thebibliography}
+
+nos graficos contar uma historia
+fazer mais comparações entre anos
 
 \end{document}
