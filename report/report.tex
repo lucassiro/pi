@@ -274,7 +274,7 @@ if __name__ == "__main__":
 
 O programa, ao ser executado, faz a extração, transformação e carga de 223.982 registros de despesas dos anos de 2022, 2023 e 2024.
 
-Logo após serem obtidos, os dados foram inseridos em um banco de dados MySQL, que foi criado usando o serviço Amazon RDS (Relational Database Service).
+Logo após serem obtidos, os dados são inseridos em um banco de dados MySQL, que foi criado usando o serviço Amazon RDS (Relational Database Service).
 
 \begin{figure}[!htbp]
     \centering
@@ -430,7 +430,7 @@ Trocando a função de agregação, podemos obter outras informações como a m�
 	\label{fig:criacao_postgresql}
 \end{figure}
 
-Outra informação é a tendência de gastos mensais, aqui temos a tendência para os anos 2022, 2023 e 2024, como para o ano de 2022 temos uma quantidade bem maior de gastos, fica um pouco difícil analisar os gastos, mas na barra lateral podemos facilmente adicionar filtros para então analisar cada ano individualmente.
+Outra informação é a tendência de gastos mensais, aqui temos a tendência para os anos 2022, 2023 e 2024, mas como para o ano de 2022 temos uma quantidade bem maior de gastos, fica um pouco difícil analisar, por isso podemos selecionar os anos na barra lateral para então analisar cada ano individualmente.
 
 \begin{figure}[!htbp]
 	\centering
@@ -501,30 +501,68 @@ O Isolation Forest é um algoritmo de Machine Learning não supervisionado ampla
 
 Podemos transformar os dados em um dataframe do Pandas\cite{Pandas}, e usá-lo para criar um modelo usando a classe IsolatioForest presente no Scikit-Learn\cite{Scikit-Learn}.
 
+O pré-processamento dos dados é etapa crucial para criar bons modelos de machine learning, iniciaremos essa análise usando a biblioteca missingno para encontrar os valores ausentes no nosso dataset.
+
 \begin{python}
-from sklearn.ensemble import IsolationForest	
+msno.matrix(df, figsize=(12, 5), fontsize=12)
 
-df_clean = df.dropna(subset=["valor_liquido"])
-
-X = df_clean[["valor_liquido"]]
-
-iso_forest = IsolationForest(contamination=0.01, random_state=42)
-df_clean["anomaly"] = iso_forest.fit_predict(X)
-
-# -1 para anomalias, 1 para dados normais
-anomalies = df_clean[df_clean["anomaly"] == -1]
-print(f"Temos {len(anomalies)} anomalias no dataframe contendo {len(df)} registros")
-print(f"Isso representa {100 * (len(anomalies) / len(df))}% dos registros")
-
-# Temos 2210 anomalias no dataframe contendo 223982 registros
-# Isso representa 0.9866864301595665% dos registros
+import missingno as msno
 \end{python}
 
-Aqui temos alguns exemplos de dados classificados como anomalias.
+Podemos ver que não há nenhuma linha com dado faltante no nosso dataset.
 
 \begin{figure}[!htbp]
 	\centering
 	\includegraphics[width=0.8\textwidth]{assets/3_plot1.png}
+	\caption{Dados faltantes.}
+	\label{fig:dados faltantes}
+\end{figure}
+
+Agora podemos fazer a conversão o Label Encoder, que é quando convertemos variáveis categóricas em numéricas para que o nosso modelo de mechine learning possa computar.
+
+\begin{python}
+for col in df.select_dtypes(include=["object"]).columns:
+	label_encoder = LabelEncoder()
+	df[col] = label_encoder.fit_transform(df[col].astype(str))
+\end{python}
+
+E por fim temos o nosso dataframe após o Label Encoder.
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/3_plot2.png}
+	\caption{Label Encoder.}
+	\label{fig:label encoder}
+\end{figure}
+
+Após o pré-processamento dos dados, podemos dar início ao processo de construção, treinamento de inferência do nosso modelo.
+
+\begin{python}
+n_estimators = 100
+contamination = 0.01
+sample_size = 256	
+
+model = IsolationForest(
+	n_estimators=n_estimators,
+	contamination=contamination,
+	max_samples=sample_size,
+	random_state=42
+)
+model.fit(df)
+
+df["anomaly"] = model.predict(df)
+
+# -1 para anomalias, 1 para dados normais
+anomalies = df[df["anomaly"] == -1]
+\end{python}
+
+E então, temos 2240 anomalias no dataframe contendo 223982 registros, isso representa 1.0000803636006466\% dos registros.
+
+Aqui temos alguns exemplos de dados que foram detectados como anomalias.
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/3_plot3.png}
 	\caption{Anomalias nos gastos.}
 	\label{fig:anomalias}
 \end{figure}
