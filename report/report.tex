@@ -50,7 +50,7 @@
 O trabalho tem como objetivo explorar os dados públicos disponibilizados pela Câmara dos Deputados para analisar e compreender os gastos realizados pelos parlamentares. Para isso, os dados serão obtidos por meio do portal dos dados abertos da câmara\cite{dados_abertos}, armazenados em um banco de dados relacional na nuvem e, posteriormente, analisados.
 
 \subsection{Motivação}
-A transparência pública é essencial para garantir a confiança da população nas instituições governamentais. Esse projeto busca realizar um ciclo completo de extração, transformação, armazenamento e análise dos dados de gastos públicos. Além disso, ao construir dashboards dinâmicos espera-se fornecer ferramentas que possam auxiliar na identificação de possíveis irregularidades e na fiscalização das despesas parlamentares.
+A transparência pública é essencial para garantir a confiança da população nas instituições governamentais. Esse projeto busca realizar um ciclo completo de extração, transformação, armazenamento e análise dos dados de gastos públicos. Além disso, ao construir dashboards, espera-se fornecer ferramentas que possam auxiliar na identificação de possíveis irregularidades e na fiscalização das despesas parlamentares.
 
 
 \subsection{Script e Banco de Dados}
@@ -91,7 +91,7 @@ for deputado in tqdm(deputados):
 print(len(despesas))  # output: 32
 \end{python}
 
-Por isso, apenas para esse ano a coleta de dados foi por meio de um arquivo no formato JSON, que também é fornecido no portal de dados abertos da câmara por meio da aba “Arquivos”.
+Por isso, apenas para esse ano a coleta de dados foi por meio de um arquivo no formato JSON, que também é fornecido no portal de dados abertos da câmara na aba “Arquivos”.
 
 \begin{figure}[!htbp]
     \centering
@@ -103,17 +103,18 @@ Por isso, apenas para esse ano a coleta de dados foi por meio de um arquivo no f
 Para os anos de 2023 e 2024 a obtenção dos dados foi realizada por meio da API\cite{dados_abertos} da Câmara dos Deputados, explorando dois principais endpoints:
 \begin{itemize}
     \item \texttt{/deputados}: Retorna informações gerais sobre os parlamentares, como seus nomes, partidos, estados e e-mails.
-    \item \texttt{/deputados/\{id\}/despesas}: Fornece detalhes sobre as despesas realizadas pelos parlamentares, incluindo valores, fornecedores, tipos de despesa e datas.
+    \item \texttt{/deputados/\{id\}/despesas}: Fornece detalhes sobre as despesas realizadas pelos parlamentares, incluindo valores, fornecedores, tipos de despesa e datas, para se ter uma consulta mais completa, devemos adicionar filtros como mês, ano, legislatura, CNPJ ou CPF de um fornecedor, no nosso caso adicionaremos filtros para os anos, ficando com a url: /deputados/\{id\}/despesas?ano=\{ano\}.
 \end{itemize}
 
 Para organizar os dados de forma eficiente e integrar os dados obtidos por meio da API e por meio do JSON, foi criado um modelo de banco de dados relacional com tabelas normalizadas para representar as informações de deputados, despesas e fornecedores\cite{dbdiagram}.
 
-\begin{figure}[!htbp]
+\begin{figure}[htbp]
 	\centering
 	\includegraphics[width=0.8\textwidth]{assets/1_dbdiagram.png}
 	\caption{Diagrama relacional.}
 	\label{fig:arquivo_json}
 \end{figure}
+\newpage
 
 Os dados são obtidos e unificados por meio da classe DataService.
 
@@ -281,6 +282,7 @@ Logo após serem obtidos, os dados foram inseridos em um banco de dados MySQL, q
     \caption{Criação do MySQL na AWS.}
     \label{fig:criacao_mysql}
 \end{figure}
+\newpage
 
 Após a base de dados ser criada, podemos nos conectar a ela usando o DBeaver\cite{dbeaver}.
 
@@ -398,6 +400,7 @@ Usando o streamlit também podemos criar gráficos dinâmicos para analisar os d
 	\caption{Gráfico dinâmico.}
 	\label{fig:criacao_postgresql}
 \end{figure}
+\newpage
 
 Ao selecionar a categoria sigla\_partido, podemos ver que os partidos com o maior número de gastos foi o PL com R\$ 34 milhões, seguido pelo PP com R\$ 28 milhões e o PT com R\$ 27 milhões.
 
@@ -408,11 +411,61 @@ Ao selecionar a categoria sigla\_partido, podemos ver que os partidos com o maio
 	\label{fig:criacao_postgresql}
 \end{figure}
 
+Podemos filtrar os gastos por UF, calculando o valor total dos gastos nesse estado.
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/2_plot7.png}
+	\caption{Valor dos gastos por UF.}
+	\label{fig:criacao_postgresql}
+\end{figure}
+\newpage
+
+Trocando a função de agregação, podemos obter outras informações como a média dos gastos por UF.
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/2_plot8.png}
+	\caption{Valor médio dos gastos por UF.}
+	\label{fig:criacao_postgresql}
+\end{figure}
+
+Outra informação é a tendência de gastos mensais, aqui temos a tendência para os anos 2022, 2023 e 2024, como para o ano de 2022 temos uma quantidade bem maior de gastos, fica um pouco difícil analisar os gastos, mas na barra lateral podemos facilmente adicionar filtros para então analisar cada ano individualmente.
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/2_plot9.png}
+	\caption{Tendência de gastos para os anos de 2022, 2023 e 2024.}
+	\label{fig:tendencia de gastos}
+\end{figure}
+
+\newpage
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/2_plot10.png}
+	\caption{Tendência de gastos para o ano de 2022.}
+	\label{fig:tendencia de gastos}
+\end{figure}
+\newpage
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/2_plot11.png}
+	\caption{Tendência de gastos para o ano de 2023.}
+	\label{fig:tendencia de gastos}
+\end{figure}
+
+\begin{figure}[!htbp]
+	\centering
+	\includegraphics[width=0.8\textwidth]{assets/2_plot12.png}
+	\caption{Tendência de gastos para o ano de 2024.}
+	\label{fig:tendencia de gastos}
+\end{figure}
+
 \subsection{Considerações finais}
 
 O Streamlit é uma ferramenta robusta para análise de dados, permitindo a criação de gráficos interativos que facilitam a compreensão e a extração de insights valiosos. Diferente de plataformas de BI como o Power BI, o Streamlit oferece maior controle e personalização sobre suas visualizações, embora exija conhecimento em programação e um tempo de desenvolvimento inicial maior.
-
-Uma das suas maiores vantagens é a capacidade de construir gráficos que retornam dados diretamente do banco de dados. Isso garante que suas visualizações estejam sempre atualizadas e em tempo real, proporcionando uma visão dinâmica e precisa das informações.
 
 \section{Machine Learning}
 \subsection{Introdução}
@@ -424,36 +477,27 @@ Machine Learning (Aprendizado de Máquina) é um campo da inteligência artifici
 No contexto do nosso projeto, as seguintes variáveis são selecionadas para a construção do modelo de machine learning:
 
 \begin{itemize}
-	\item \texttt{nome\_deputado}: Retorna o nome completo do deputado.
-	\item \texttt{ano}: Indica o ano em que a despesa foi realizada.
-	\item \texttt{mes}: Indica o mês em que a despesa foi realizada.
-	\item \texttt{tipo\_despesa}: Descreve a categoria da despesa, como "DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR"\ ou  "PASSAGEM AÉREA - SIGEPA".
-	\item \texttt{valor\_documento}: Apresenta o valor da despesa conforme registrado no documento fiscal.
-	\item \texttt{cnpj\_cpf\_fornecedor}: Fornece o CNPJ ou CPF do fornecedor do bem ou serviço.
-	\item \texttt{sigla\_partido}: Retorna a sigla do partido político ao qual o deputado é filiado.
+	\item \texttt{nome\_deputado}: Nome completo do deputado.
+	\item \texttt{ano}: Ano em que a despesa foi realizada.
+	\item \texttt{mes}: Mês em que a despesa foi realizada.
+	\item \texttt{tipo\_despesa}: Categoria da despesa, como "DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR"\ ou  "PASSAGEM AÉREA - SIGEPA".
+	\item \texttt{valor\_documento}: Valor da despesa conforme registrado no documento.
+	\item \texttt{cnpj\_cpf\_fornecedor}: CNPJ ou CPF do fornecedor do bem ou serviço.
+	\item \texttt{nome\_fornecedor}: Nome completo do fornecedor do bem ou serviço.
+	\item \texttt{sigla\_partido}: Sigla do partido político ao qual o deputado é afiliado.
 	\item \texttt{id\_legislatura}: Identificador único da legislatura à qual o deputado pertence.
-	\item \texttt{sigla\_uf}: Retorna a sigla da Unidade Federativa (estado) pela qual o deputado foi eleito.
-	\item \texttt{nome\_fornecedor}: Apresenta o nome completo do fornecedor do bem ou serviço.
+	\item \texttt{sigla\_uf}: Sigla da Unidade Federativa (estado) pela qual o deputado foi eleito.
 \end{itemize}
 
-Com o propósito de criar um modelo de identificação de anomalias nos dados, utilizamos o algoritmo Isolation Forest.
+Com o propósito de criar um modelo de identificação de anomalias nos dados, utilizamos o algoritmo Isolation Forest\cite{Scikit-Learn}.
 
-O Isolation Forest é um algoritmo de Machine Learning não supervisionado, amplamente utilizado para detecção de anomalias. Diferente de outros métodos que tentam "encontrar" a normalidade para depois identificar o que é diferente, o Isolation Forest adota uma abordagem mais direta: ele isola as anomalias. Ele funciona da seguinte forma:
+O Isolation Forest é um algoritmo de Machine Learning não supervisionado amplamente utilizado para detecção de anomalias. Diferente de outros métodos que tentam "encontrar" a normalidade para depois identificar o que é diferente, o Isolation Forest adota uma abordagem mais direta, ele isola as anomalias. Ele funciona da seguinte forma\cite{isolation-forest}:
 
 \begin{enumerate}
 	\item \texttt{Construção de Árvores Aleatórias}: O algoritmo constrói uma floresta de árvores de decisão. Para cada árvore, ele seleciona aleatoriamente um atributo e, em seguida, seleciona aleatoriamente um ponto de divisão dentro do intervalo de valores desse atributo.
 	\item \texttt{Isolamento de Pontos}: Esse processo de divisão continua até que cada ponto de dado esteja isolado ou um limite de profundidade da árvore seja atingido.
 	\item \texttt{Identificação de Anomalias}: O princípio é que as anomalias, por serem pontos mais raros e diferentes, geralmente exigem menos divisões para serem isoladas nas árvores. Pontos normais, por outro lado, são mais densos e requerem mais divisões para serem separados uns dos outros.
 \end{enumerate}
-
-Vantagens do Isolation Forest:
-
-\begin{itemize}
-	\item Eficiência: É computacionalmente mais eficiente do que muitos outros algoritmos de detecção de anomalias, especialmente para grandes conjuntos de dados.
-	\item Escalabilidade: Lida bem com dados de alta dimensão.
-	\item Baixo Consumo de Memória: Não exige o armazenamento de modelos de densidade complexos.
-	\item Não Supervisionado: Não requer dados previamente rotulados como "normal" ou "anômalo" para treinar o modelo.
-\end{itemize}
 
 Podemos transformar os dados em um dataframe do Pandas\cite{Pandas}, e usá-lo para criar um modelo usando a classe IsolatioForest presente no Scikit-Learn\cite{Scikit-Learn}.
 
@@ -487,7 +531,7 @@ Aqui temos alguns exemplos de dados classificados como anomalias.
 
 \subsection{Considerações finais}
 
-Em resumo, o Isolation Forest é uma escolha robusta para identificar comportamentos ou eventos incomuns que se desviam significativamente do padrão esperado nos dados.
+Para identificar comportamentos ou eventos incomuns que se desviam do padrão em grandes volumes de dados, o Isolation Forest é uma escolha excepcionalmente robusta. Essa ferramenta se mostra muito eficaz na detecção de problemas em gastos e como suporte crucial em auditorias, ajudando a detectar o que realmente importa.
 
 \section{Vídeo}
 O vídeo de 10 minutos mostrando todo o projeto foi gravado e disponibilizado por meio do google drive através do link: link.
@@ -510,6 +554,9 @@ O vídeo de 10 minutos mostrando todo o projeto foi gravado e disponibilizado po
     
     \bibitem{Scikit-Learn} Scikit-Learn: 
     \href{https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html}{https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html}
+    
+    \bibitem{isolation-forest} Guia da floresta de isolamento: Explicação e implementação em Python: 
+    \href{https://www.datacamp.com/pt/tutorial/isolation-forest}{https://www.datacamp.com/pt/tutorial/isolation-forest}
 \end{thebibliography}
 
 \end{document}
