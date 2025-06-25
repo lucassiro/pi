@@ -53,8 +53,8 @@ class DBService:
             self.dialect = "sqlite"
         else:
             self.engine = create_engine(f"mysql+pymysql://{user}:{password}@{host}:{port}/{dbname}", pool_recycle=3600)
-
             self.dialect = "mysql"
+
         self.Session = sessionmaker(bind=self.engine)
 
     def insert_data(self, deputados: list, despesas: list, fornecedores: list) -> None:

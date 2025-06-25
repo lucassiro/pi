@@ -53,7 +53,7 @@ def get_table() -> pd.DataFrame:
 
     except mysql.connector.Error as err:
         print(f"Error: {err}")
-        return pd.DataFrame()  # Return empty DataFrame on error
+        return pd.DataFrame()
     finally:
         if conn and conn.is_connected():
             cursor.close()
