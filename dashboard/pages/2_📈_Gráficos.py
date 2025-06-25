@@ -1,5 +1,3 @@
-import altair as alt
-import pandas as pd
 import streamlit as st
 from babel.numbers import format_compact_decimal, format_currency
 from pages.utils.plots import create_bar_plot
@@ -74,7 +72,6 @@ create_bar_plot(
     limit=10,
 )
 
-
 # Total de gastos por Partido Político
 create_bar_plot(
     df=df,
@@ -119,10 +116,17 @@ create_bar_plot(
     agg_function="mean",
 )
 
-
-# Série temporal
-st.markdown("#### Tendência de Gastos Mensais")
+# Série temporal (Total)
+st.markdown("#### Tendência de Gastos Mensais (Valor Total)")
 monthly_expenses = df.groupby(["ano", "mes"])["valor_documento"].sum().reset_index()
+monthly_expenses["ano_mes"] = (
+    monthly_expenses["ano"].astype(str) + "-" + monthly_expenses["mes"].astype(str).str.zfill(2)
+)
+st.line_chart(monthly_expenses, x="ano_mes", y="valor_documento")
+
+# Série temporal (Média)
+st.markdown("#### Tendência de Gastos Mensais (Média)")
+monthly_expenses = df.groupby(["ano", "mes"])["valor_documento"].mean().reset_index()
 monthly_expenses["ano_mes"] = (
     monthly_expenses["ano"].astype(str) + "-" + monthly_expenses["mes"].astype(str).str.zfill(2)
 )

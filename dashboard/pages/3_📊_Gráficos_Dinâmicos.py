@@ -52,7 +52,7 @@ create_bar_plot(
     df=full_df,
     x=x,
     y=y,
-    x_label=x,
+    x_label=f"{x} ({operation})",
     y_label=y,
     title=f"{y} X {x} ({operation})",
     agg_function=agg_function,
