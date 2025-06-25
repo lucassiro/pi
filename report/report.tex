@@ -331,7 +331,7 @@ LEFT JOIN
 	fornecedores ON despesas.cnpj_cpf_fornecedor = fornecedores.cnpj_cpf_fornecedor;
 \end{verbatim}
 
-A partir dos dados recuperados da base de dados criamos um dataframe do Pandas\cite{Pandas}, onde podemos aplicar filtros e realizar agrupamentos nos dados para extrair informações e criar gráficos.
+A partir dos dados recuperados da base de dados criamos um dataframe do Pandas\cite{Pandas}, nele podemos aplicar filtros e realizar agrupamentos nos dados para extrair informações e criar gráficos.
 
 \begin{python}
 grouped_df = df[["tipo_despesa", "valor_documento"]].groupby("tipo_despesa").sum()
@@ -477,16 +477,14 @@ Machine Learning (Aprendizado de Máquina) é um campo da inteligência artifici
 No contexto do nosso projeto, as seguintes variáveis são selecionadas para a construção do modelo de machine learning:
 
 \begin{itemize}
-	\item \texttt{nome\_deputado}: Nome completo do deputado.
-	\item \texttt{ano}: Ano em que a despesa foi realizada.
-	\item \texttt{mes}: Mês em que a despesa foi realizada.
-	\item \texttt{tipo\_despesa}: Categoria da despesa, como "DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR"\ ou  "PASSAGEM AÉREA - SIGEPA".
-	\item \texttt{valor\_documento}: Valor da despesa conforme registrado no documento.
-	\item \texttt{cnpj\_cpf\_fornecedor}: CNPJ ou CPF do fornecedor do bem ou serviço.
-	\item \texttt{nome\_fornecedor}: Nome completo do fornecedor do bem ou serviço.
-	\item \texttt{sigla\_partido}: Sigla do partido político ao qual o deputado é afiliado.
-	\item \texttt{id\_legislatura}: Identificador único da legislatura à qual o deputado pertence.
-	\item \texttt{sigla\_uf}: Sigla da Unidade Federativa (estado) pela qual o deputado foi eleito.
+	\item \textbf{nome\_deputado}: Nome completo do deputado.
+	\item \textbf{ano}: Ano em que a despesa foi realizada.
+	\item \textbf{mes}: Mês em que a despesa foi realizada.
+	\item \textbf{tipo\_despesa}: Categoria da despesa, como "DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR"\ ou  "PASSAGEM AÉREA - SIGEPA".
+	\item \textbf{valor\_documento}: Valor da despesa conforme registrado no documento.
+	\item \textbf{nome\_fornecedor}: Nome completo do fornecedor do bem ou serviço.
+	\item \textbf{sigla\_partido}: Sigla do partido político ao qual o deputado é afiliado.
+	\item \textbf{sigla\_uf}: Sigla da Unidade Federativa (estado) pela qual o deputado foi eleito.
 \end{itemize}
 
 Com o propósito de criar um modelo de identificação de anomalias nos dados, utilizamos o algoritmo Isolation Forest\cite{Scikit-Learn}.
@@ -494,9 +492,9 @@ Com o propósito de criar um modelo de identificação de anomalias nos dados, u
 O Isolation Forest é um algoritmo de Machine Learning não supervisionado amplamente utilizado para detecção de anomalias. Diferente de outros métodos que tentam "encontrar" a normalidade para depois identificar o que é diferente, o Isolation Forest adota uma abordagem mais direta, ele isola as anomalias. Ele funciona da seguinte forma\cite{isolation-forest}:
 
 \begin{enumerate}
-	\item \texttt{Construção de Árvores Aleatórias}: O algoritmo constrói uma floresta de árvores de decisão. Para cada árvore, ele seleciona aleatoriamente um atributo e, em seguida, seleciona aleatoriamente um ponto de divisão dentro do intervalo de valores desse atributo.
-	\item \texttt{Isolamento de Pontos}: Esse processo de divisão continua até que cada ponto de dado esteja isolado ou um limite de profundidade da árvore seja atingido.
-	\item \texttt{Identificação de Anomalias}: O princípio é que as anomalias, por serem pontos mais raros e diferentes, geralmente exigem menos divisões para serem isoladas nas árvores. Pontos normais, por outro lado, são mais densos e requerem mais divisões para serem separados uns dos outros.
+	\item \textbf{Construção de Árvores Aleatórias}: O algoritmo constrói uma floresta de árvores de decisão. Para cada árvore, ele seleciona aleatoriamente um atributo e, em seguida, seleciona aleatoriamente um ponto de divisão dentro do intervalo de valores desse atributo.
+	\item \textbf{Isolamento de Pontos}: Esse processo de divisão continua até que cada ponto de dado esteja isolado ou um limite de profundidade da árvore seja atingido.
+	\item \textbf{Identificação de Anomalias}: O princípio é que as anomalias, por serem pontos mais raros e diferentes, geralmente exigem menos divisões para serem isoladas nas árvores. Pontos normais, por outro lado, são mais densos e requerem mais divisões para serem separados uns dos outros.
 \end{enumerate}
 
 Podemos transformar os dados em um dataframe do Pandas\cite{Pandas}, e usá-lo para criar um modelo usando a classe IsolatioForest presente no Scikit-Learn\cite{Scikit-Learn}.
@@ -509,7 +507,7 @@ msno.matrix(df, figsize=(12, 5), fontsize=12)
 import missingno as msno
 \end{python}
 
-Podemos ver que não há nenhuma linha com dado faltante no nosso dataset.
+Podemos ver que não há nenhuma linha com dado faltante no nosso dataset, por isso a parte de inputação de dados ou remoção de linhas com valores nulos não será necessária.
 
 \begin{figure}[!htbp]
 	\centering
@@ -518,12 +516,25 @@ Podemos ver que não há nenhuma linha com dado faltante no nosso dataset.
 	\label{fig:dados faltantes}
 \end{figure}
 
-Agora podemos fazer a conversão o Label Encoder, que é quando convertemos variáveis categóricas em numéricas para que o nosso modelo de mechine learning possa computar.
+Logo após podemos selecionar as features e usar o Label Encoder, com ele convertemos variáveis categóricas em numéricas para que o nosso modelo de machine learning possa computar.
 
 \begin{python}
-for col in df.select_dtypes(include=["object"]).columns:
+le_df = df[
+	[
+		"nome_deputado",
+		"ano",
+		"mes",
+		"tipo_despesa",
+		"valor_documento",
+		"sigla_partido",
+		"sigla_uf",
+		"nome_fornecedor",
+	]
+]
+
+for col in le_df.select_dtypes(include=["object"]).columns:
 	label_encoder = LabelEncoder()
-	df[col] = label_encoder.fit_transform(df[col].astype(str))
+	le_df[col] = label_encoder.fit_transform(le_df[col].astype(str))
 \end{python}
 
 E por fim temos o nosso dataframe após o Label Encoder.
@@ -534,8 +545,9 @@ E por fim temos o nosso dataframe após o Label Encoder.
 	\caption{Label Encoder.}
 	\label{fig:label encoder}
 \end{figure}
+\newpage
 
-Após o pré-processamento dos dados, podemos dar início ao processo de construção, treinamento de inferência do nosso modelo.
+Após o pré-processamento dos dados, podemos dar início ao processo de construção, treinamento e inferência do nosso modelo.
 
 \begin{python}
 n_estimators = 100
@@ -550,7 +562,7 @@ model = IsolationForest(
 )
 model.fit(df)
 
-df["anomaly"] = model.predict(df)
+df["anomaly"] = model.predict(le_df)
 
 # -1 para anomalias, 1 para dados normais
 anomalies = df[df["anomaly"] == -1]
@@ -590,7 +602,7 @@ O vídeo de 10 minutos mostrando todo o projeto foi gravado e disponibilizado po
     \bibitem{Pandas} Pandas: 
     \href{https://pandas.pydata.org/}{https://pandas.pydata.org/}
     
-    \bibitem{Scikit-Learn} Scikit-Learn: 
+    \bibitem{Scikit-Learn} Isolation Forest no Scikit-Learn: 
     \href{https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html}{https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html}
     
     \bibitem{isolation-forest} Guia da floresta de isolamento: Explicação e implementação em Python: 
