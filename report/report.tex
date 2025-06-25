@@ -102,8 +102,8 @@ Por isso, apenas para esse ano a coleta de dados foi por meio de um arquivo no f
 
 Para os anos de 2023 e 2024 a obtenção dos dados foi realizada por meio da API\cite{dados_abertos} da Câmara dos Deputados, explorando dois principais endpoints:
 \begin{itemize}
-    \item \texttt{/deputados}: Retorna informações gerais sobre os parlamentares, como seus nomes, partidos, estados e e-mails.
-    \item \texttt{/deputados/\{id\}/despesas}: Fornece detalhes sobre as despesas realizadas pelos parlamentares, incluindo valores, fornecedores, tipos de despesa e datas, para se ter uma consulta mais completa, devemos adicionar filtros como mês, ano, legislatura, CNPJ ou CPF de um fornecedor, no nosso caso adicionaremos filtros para os anos, ficando com a url: /deputados/\{id\}/despesas?ano=\{ano\}.
+    \item \textbf{/deputados}: Retorna informações gerais sobre os parlamentares, como seus nomes, partidos, estados e e-mails.
+    \item \textbf{/deputados/\{id\}/despesas}: Fornece detalhes sobre as despesas realizadas pelos parlamentares, incluindo valores, fornecedores, tipos de despesa e datas, para se ter uma consulta mais completa, devemos adicionar filtros como mês, ano, legislatura, CNPJ ou CPF de um fornecedor, no nosso caso adicionaremos filtros para os anos, ficando com a url: /deputados/\{id\}/despesas?ano=\{ano\}.
 \end{itemize}
 
 Para organizar os dados de forma eficiente e integrar os dados obtidos por meio da API e por meio do JSON, foi criado um modelo de banco de dados relacional com tabelas normalizadas para representar as informações de deputados, despesas e fornecedores\cite{dbdiagram}.
@@ -232,8 +232,106 @@ class DataService:
 		return deputados, despesas, fornecedores
 \end{python}
 
+A persistência dos dados na base de dados é feita por meio da classe DBService. Ela permite a ingestão dos dados em uma tabela SQLite e MySQL, a tabela do SQLite foi criada e usada apenas para o proprósito de desenvolvimento.
 
-Por fim, temos a função main(), que realiza todo o ciclo de extração, transformação e carregamento dos dados.
+\begin{python}
+from sqlalchemy import Column, Float, Integer, String, create_engine, insert
+from sqlalchemy.orm import declarative_base, sessionmaker
+
+from data_ingestion.services.log_service import logger
+
+Base = declarative_base()
+
+
+class Despesas(Base):
+	tablename__ = "despesas"
+	id = Column(Integer, primary_key=True, autoincrement=True)
+	nome_deputado = Column(String(100))
+	ano = Column(Integer)
+	mes = Column(Integer)
+	tipo_despesa = Column(String(100))
+	data_documento = Column(String(100))
+	valor_documento = Column(Float)
+	cnpj_cpf_fornecedor = Column(String(100))
+	valor_liquido = Column(Float)
+	valor_glosa = Column(Float)
+	fonte = Column(String(100))
+
+
+class Fornecedores(Base):
+	tablename__ = "fornecedores"
+	id = Column(Integer, primary_key=True, autoincrement=True)
+	nome_fornecedor = Column(String(100))
+	cnpj_cpf_fornecedor = Column(String(100), unique=True)
+	fonte = Column(String(100))
+
+
+class Deputados(Base):
+	tablename__ = "deputados"
+	id = Column(Integer, primary_key=True)
+	nome = Column(String(100), unique=True)
+	sigla_partido = Column(String(100))
+	id_legislatura = Column(Integer)
+	sigla_uf = Column(String(100))
+
+
+class DBService:
+	def __init__(
+		self,
+		local: bool = False,
+		user: str | None = None,
+		password: str | None = None,
+		host: str | None = None,
+		port: int | None = None,
+		dbname: str | None = None,
+	) -> None:
+		if local:
+			self.engine = create_engine("sqlite:///database.db")
+			self.dialect = "sqlite"
+		else:
+			self.engine = create_engine(f"mysql+pymysql://{user}:{password}@{host}:{port}/{dbname}", pool_recycle=3600)
+			self.dialect = "mysql"
+
+		self.Session = sessionmaker(bind=self.engine)
+	
+	def insert_data(self, deputados: list, despesas: list, fornecedores: list) -> None:
+		Base.metadata.create_all(self.engine)
+		session = self.Session()
+		
+		try:
+			logger.info("Inserindo deputados")
+			if deputados:
+				stmt = insert(Deputados)
+				if self.dialect == "sqlite":
+					stmt = stmt.prefix_with("OR IGNORE")
+				elif self.dialect == "mysql":
+					stmt = stmt.prefix_with("IGNORE")
+				session.execute(stmt, deputados)
+			
+			logger.info("Inserindo fornecedores")
+			if fornecedores:
+				stmt = insert(Fornecedores)
+				if self.dialect == "sqlite":
+					stmt = stmt.prefix_with("OR IGNORE")
+				elif self.dialect == "mysql":
+					stmt = stmt.prefix_with("IGNORE")
+				session.execute(stmt, fornecedores)
+			
+			logger.info("Inserindo despesas")
+			if despesas:
+				stmt = insert(Despesas)
+				if self.dialect == "sqlite":
+					stmt = stmt.prefix_with("OR IGNORE")
+				elif self.dialect == "mysql":
+					stmt = stmt.prefix_with("IGNORE")
+				session.execute(stmt, despesas)
+			
+			session.commit()
+		finally:
+			session.close()
+\end{python}
+
+E por fim, temos a função main(), que realiza todo o ciclo de extração, transformação e carregamento dos dados.
 
 \begin{python}
 import os
@@ -373,6 +471,7 @@ Para os anos combinados, temos que DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR foi a c
 	\caption{Valor dos gastos por tipo de despesa.}
 	\label{fig:criacao_postgresql}
 \end{figure}
+\newpage
 
 Giacobo foi o parlamentar com a maior quantidade de gastos, totalizando R\$ 1.289.809,76 em gastos, seguido por Silas Câmara com R\$ 1.177.321,09 e Gustinho Ribeiro com R\$ 1.061.509,11.
 
