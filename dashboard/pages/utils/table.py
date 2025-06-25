@@ -1,10 +1,20 @@
-import sqlite3
+import os
 
+import mysql.connector
 import pandas as pd
+from dotenv import load_dotenv
+
+_ = load_dotenv()
 
 
 def get_table() -> pd.DataFrame:
-    db_path = "database.db"
+    db_config = {
+        "user": os.environ["DB_USER"],
+        "password": os.environ["DB_PASSWORD"],
+        "host": os.environ["DB_HOST"],
+        "port": int(os.environ["DB_PORT"]),
+        "database": os.environ["DB_NAME"],
+    }
 
     query = """
         SELECT
@@ -21,30 +31,31 @@ def get_table() -> pd.DataFrame:
         FROM
             despesas
         LEFT JOIN
-            deputados on despesas.nome_deputado = deputados.nome
+            deputados ON despesas.nome_deputado = deputados.nome
         LEFT JOIN
             fornecedores ON despesas.cnpj_cpf_fornecedor = fornecedores.cnpj_cpf_fornecedor;
     """
-    conn = sqlite3.connect(db_path)
-    cur = conn.cursor()
-    cur.execute(query)
-    query_results = cur.fetchall()
 
-    data = []
-    for result in query_results:
-        data.append({
-            "nome_deputado": result[0],
-            "ano": result[1],
-            "mes": result[2],
-            "tipo_despesa": result[3],
-            "valor_documento": result[4],
-            "cnpj_cpf_fornecedor": result[5],
-            "sigla_partido": result[6],
-            "id_legislatura": result[7],
-            "sigla_uf": result[8],
-            "nome_fornecedor": result[9],
-        })
+    conn = None
+    try:
+        conn = mysql.connector.connect(**db_config)
 
-    df = pd.DataFrame(data)
+        if conn.is_connected():
+            print("Successfully connected to MySQL database")
 
-    return df
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute(query)
+        query_results = cursor.fetchall()
+
+        df = pd.DataFrame(query_results)
+
+        return df
+
+    except mysql.connector.Error as err:
+        print(f"Error: {err}")
+        return pd.DataFrame()  # Return empty DataFrame on error
+    finally:
+        if conn and conn.is_connected():
+            cursor.close()
+            conn.close()
+            print("MySQL connection closed.")

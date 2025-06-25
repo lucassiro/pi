@@ -9,33 +9,33 @@ Base = declarative_base()
 class Despesas(Base):
     __tablename__ = "despesas"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    nome_deputado = Column(String)
+    nome_deputado = Column(String(100))
     ano = Column(Integer)
     mes = Column(Integer)
-    tipo_despesa = Column(String)
-    data_documento = Column(String)
+    tipo_despesa = Column(String(100))
+    data_documento = Column(String(100))
     valor_documento = Column(Float)
-    cnpj_cpf_fornecedor = Column(String)
+    cnpj_cpf_fornecedor = Column(String(100))
     valor_liquido = Column(Float)
     valor_glosa = Column(Float)
-    fonte = Column(String)
+    fonte = Column(String(100))
 
 
 class Fornecedores(Base):
     __tablename__ = "fornecedores"
     id = Column(Integer, primary_key=True, autoincrement=True)
-    nome_fornecedor = Column(String)
-    cnpj_cpf_fornecedor = Column(String, unique=True)
-    fonte = Column(String)
+    nome_fornecedor = Column(String(100))
+    cnpj_cpf_fornecedor = Column(String(100), unique=True)
+    fonte = Column(String(100))
 
 
 class Deputados(Base):
     __tablename__ = "deputados"
     id = Column(Integer, primary_key=True)
-    nome = Column(String, unique=True)
-    sigla_partido = Column(String)
+    nome = Column(String(100), unique=True)
+    sigla_partido = Column(String(100))
     id_legislatura = Column(Integer)
-    sigla_uf = Column(String)
+    sigla_uf = Column(String(100))
 
 
 class DBService:
@@ -52,7 +52,8 @@ class DBService:
             self.engine = create_engine("sqlite:///database.db")
             self.dialect = "sqlite"
         else:
-            self.engine = create_engine(f"mysql+mysqldb://{user}:{password}@{host}:{port}/{dbname}", pool_recycle=3600)
+            self.engine = create_engine(f"mysql+pymysql://{user}:{password}@{host}:{port}/{dbname}", pool_recycle=3600)
+
             self.dialect = "mysql"
         self.Session = sessionmaker(bind=self.engine)
 
