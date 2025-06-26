@@ -54,7 +54,7 @@ A transparência pública é essencial para garantir a confiança da população
 
 
 \subsection{Script e Banco de Dados}
-Para o ano de 2022, a obtenção dos dados por meio da API\cite{dados_abertos} retornou apenas 32 registros.
+Para o ano de 2022, a obtenção dos dados por meio da API\cite{dados_abertos} retornou apenas 31 registros.
 
 \begin{python}
 import io
@@ -88,7 +88,7 @@ for deputado in tqdm(deputados):
 	despesas_deputado = api.get_despesas(id_=id_, year=2022)
 	despesas.extend(despesas_deputado["dados"])
 
-print(len(despesas))  # output: 32
+print(len(despesas))  # output: 31
 \end{python}
 
 Por isso, apenas para esse ano a coleta de dados foi por meio de um arquivo no formato JSON, que também é fornecido no portal de dados abertos da câmara na aba “Arquivos”.
